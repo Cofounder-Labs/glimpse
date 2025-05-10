@@ -4,22 +4,24 @@
     "progress": 1.0,
     "steps": [
         {
-            "screenshot_url": "https://example.com/screenshot1.png",
-            "annotation": {
-                "text": "Click here to try the API",
-                "rel_x": 0.16,
-                "rel_y": 0.40
+            "click_position": {
+                "x": 230,
+                "y": 410,
+                "page_width": 1440,
+                "page_height": 1024
             },
+            "click_label": "Click here to try the API",
             "element_selector": "#try-api-button",
             "url": "https://example.com/docs/api"
         },
         {
-            "screenshot_url": "https://example.com/screenshot2.png",
-            "annotation": {
-                "text": "Enter your API key here",
-                "rel_x": 0.25,
-                "rel_y": 0.60
+            "click_position": {
+                "x": 360,
+                "y": 615,
+                "page_width": 1440,
+                "page_height": 1024
             },
+            "click_label": "Enter your API key here",
             "element_selector": "#api-key-input",
             "url": "https://example.com/docs/api/try"
         }

@@ -18,9 +18,15 @@ class DemoStatus(BaseModel):
     progress: float
     steps: Optional[List[Dict]] = None
 
+class ClickPosition(BaseModel):
+    x: int
+    y: int
+    page_width: int
+    page_height: int
+
 class DemoStep(BaseModel):
-    screenshot_url: str
-    annotation: Dict
+    click_position: ClickPosition
+    click_label: str
     element_selector: str
     url: str
 
@@ -55,16 +61,21 @@ async def get_demo_status(job_id: str):
         return get_mock_response("demo_status", {"job_id": job_id})
     
     # TODO: Implement actual status checking logic
+    step = DemoStep(
+        click_position=ClickPosition(
+            x=230,
+            y=410,
+            page_width=1440,
+            page_height=1024
+        ),
+        click_label="Click here to try the API",
+        element_selector="#try-api-button",
+        url="https://example.com/docs/api"
+    )
+    
     return DemoStatus(
         job_id=job_id,
         status="completed",
         progress=1.0,
-        steps=[
-            DemoStep(
-                screenshot_url="https://example.com/screenshot1.png",
-                annotation={"text": "Click here", "rel_x": 0.5, "rel_y": 0.5},
-                element_selector="#button1",
-                url="https://example.com"
-            )
-        ]
+        steps=[step.model_dump()]
     ) 

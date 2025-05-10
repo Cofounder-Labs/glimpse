@@ -127,7 +127,7 @@ Interface 2: Demo Agent → Demo Editor
 ⸻
 
 5. Publishing Workflow
-	•	User Action: Clicks “Publish”
+	•	User Action: Clicks "Publish"
 	•	Backend: Saves final state to demo DB
 	•	Output:
 	•	Hosted demo at: https://glimpse.app/demo/{id}
