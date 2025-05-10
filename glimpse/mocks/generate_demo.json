@@ -1,0 +1,6 @@
+{
+    "job_id": "mock_job_123",
+    "status": "processing",
+    "progress": 0.0,
+    "steps": null
+} 

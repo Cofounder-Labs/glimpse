@@ -1,0 +1,22 @@
+[project]
+name = "glimpse"
+version = "0.1.0"
+description = "AI-Assisted Demo Creation via Natural Language and Browser Agent"
+authors = [
+    {name = "Re Solver"},
+    {name = "Ritanshu Dokania"}
+]
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "browser-use (>=0.1.45,<0.2.0)",
+    "fastapi (>=0.109.0,<0.110.0)",
+    "uvicorn (>=0.27.0,<0.28.0)",
+    "pydantic (>=2.6.0,<3.0.0)",
+    "python-dotenv (>=1.0.0,<2.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

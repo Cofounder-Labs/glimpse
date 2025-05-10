@@ -1,0 +1,27 @@
+{
+    "job_id": "mock_job_123",
+    "status": "completed",
+    "progress": 1.0,
+    "steps": [
+        {
+            "screenshot_url": "https://example.com/screenshot1.png",
+            "annotation": {
+                "text": "Click here to try the API",
+                "rel_x": 0.16,
+                "rel_y": 0.40
+            },
+            "element_selector": "#try-api-button",
+            "url": "https://example.com/docs/api"
+        },
+        {
+            "screenshot_url": "https://example.com/screenshot2.png",
+            "annotation": {
+                "text": "Enter your API key here",
+                "rel_x": 0.25,
+                "rel_y": 0.60
+            },
+            "element_selector": "#api-key-input",
+            "url": "https://example.com/docs/api/try"
+        }
+    ]
+} 
