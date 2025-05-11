@@ -22,13 +22,15 @@ async def execute_agent(nl_task: str, root_url: str) -> dict:
         logger.debug(f"Starting task: {nl_task} at {root_url}")
         
         # Initialize the LLM (using OpenAI or Azure OpenAI)
-        if os.getenv("AZURE_OPENAI_ENDPOINT") and os.getenv("AZURE_OPENAI_API_KEY"):
+        if os.getenv("AZURE_OPENAI_ENDPOINT") and os.getenv("AZURE_OPENAI_KEY"):
             logger.debug("Using Azure OpenAI")
             llm = AzureChatOpenAI(
-                api_version="2024-02-15-preview",
-                model="gpt-4o",
-                temperature=0
-            )
+                    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                    api_key=os.getenv("AZURE_OPENAI_KEY"),
+                    api_version="2024-02-15-preview",
+                    deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o"),  # Get deployment name from env or default to gpt-4o
+                    temperature=0
+                )
         elif os.getenv("OPENAI_API_KEY"):
             logger.debug("Using OpenAI")
             llm = ChatOpenAI(
