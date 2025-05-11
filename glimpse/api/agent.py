@@ -73,8 +73,7 @@ async def execute_agent(nl_task: str, root_url: str) -> dict:
         specific_task = f"""
         Go to {root_url} and {nl_task}
         
-        Important: Always perform actions in a new tab, never modify the current tab.
-        Please complete this task step by step and stop when you see the search results.
+        Important: Please complete this task step by step and stop when you see the search results.
         """
         
         # Initialize the agent
