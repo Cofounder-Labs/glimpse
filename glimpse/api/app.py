@@ -8,6 +8,9 @@ from pathlib import Path
 from .agent import execute_agent
 import asyncio
 from datetime import datetime
+import subprocess
+import time
+import requests # Added for launch_chrome_with_debugging
 
 app = FastAPI(title="Glimpse API", description="API for generating and managing interactive demos")
 
@@ -30,6 +33,79 @@ app.add_middleware(
 # In-memory job store and WebSocket connections
 job_store: Dict[str, Dict] = {}
 active_connections: Dict[str, Set[WebSocket]] = {}
+
+# Global variable to store the browser instance or connection details
+browser_details = {"remote_debugging_port": 9222} # Store port for now
+
+def launch_chrome_with_debugging():
+    """Launch Chrome with remote debugging enabled"""
+    chrome_path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' # This might need to be configurable
+    browser_details["chrome_instance_path"] = None # Initialize
+    browser_details["remote_debugging_port"] = browser_details.get("remote_debugging_port", 9222) # Ensure port is set
+
+    if not os.path.exists(chrome_path):
+        print(f"Chrome not found at {chrome_path}. Please install Chrome or update the path.")
+        browser_details["remote_debugging_port"] = None 
+        return
+
+    browser_details["chrome_instance_path"] = chrome_path # Store the path
+
+    port = browser_details["remote_debugging_port"]
+    # Check if Chrome is already running with remote debugging
+    try:
+        response = requests.get(f'http://localhost:{port}/json/version')
+        if response.status_code == 200:
+            print(f"Chrome is already running with remote debugging on port {port}")
+            return
+    except requests.exceptions.ConnectionError:
+        # Chrome is not running with remote debugging on this port, proceed with launch
+        pass
+
+    # Kill any existing Chrome processes with the target remote debugging port
+    # Be cautious with pkill, ensure it's specific enough
+    try:
+        subprocess.run(['pkill', '-f', f'remote-debugging-port={port}'], check=False)
+        time.sleep(1)  # Wait for processes to be killed
+    except FileNotFoundError:
+        print("pkill command not found. Skipping process killing. This might lead to issues if Chrome is already running.")
+
+
+    user_data_dir = f'/tmp/chrome-debug-profile-{port}'
+    if not os.path.exists(user_data_dir):
+        os.makedirs(user_data_dir)
+
+    # Launch Chrome with remote debugging
+    try:
+        subprocess.Popen([
+            chrome_path,
+            f'--remote-debugging-port={port}',
+            f'--user-data-dir={user_data_dir}',
+            # Add any other flags you were using, like window size/position, if they apply here
+            # f"--window-size={initial_width},{initial_height}",
+            # f"--window-position={initial_x},{initial_y}",
+        ])
+        time.sleep(3)  # Wait for Chrome to start
+        # Verify connection after launch
+        response = requests.get(f'http://localhost:{port}/json/version')
+        if response.status_code == 200:
+            print(f"Launched new Chrome instance with remote debugging on port {port}")
+        else:
+            print(f"Failed to connect to Chrome on port {port} after launching. Status: {response.status_code}")
+            browser_details["remote_debugging_port"] = None
+            # Keep chrome_instance_path as it might be a valid path even if launch/connect failed here
+    except FileNotFoundError:
+        print(f"Failed to launch Chrome. Ensure '{chrome_path}' is correct.")
+        browser_details["remote_debugging_port"] = None
+        browser_details["chrome_instance_path"] = None # Path is invalid if Chrome executable not found
+    except Exception as e:
+        print(f"An error occurred while launching Chrome: {e}")
+        browser_details["remote_debugging_port"] = None
+        # Keep chrome_instance_path
+
+
+@app.on_event("startup")
+async def startup_event():
+    launch_chrome_with_debugging()
 
 # Models
 class DemoRequest(BaseModel):
@@ -81,7 +157,8 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
         job_store[job_id]["status"] = "processing"
         job_store[job_id]["progress"] = 0.1 # Initial progress
 
-        # Run the agent (output is ignored as per requirement)
+        # Pass browser details to execute_agent
+        # The agent will need to be modified to use this.
         if MOCK_MODE:
             mock_nl_task = """
             Go to https://browser-use.com
@@ -91,9 +168,9 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
             Click on the "Try it" button
             Stop
             """
-            await execute_agent(mock_nl_task, root_url)
+            await execute_agent(mock_nl_task, root_url, browser_details=browser_details)
         else:
-            await execute_agent(nl_task, root_url)
+            await execute_agent(nl_task, root_url, browser_details=browser_details)
         
         final_status = "completed"
         job_store[job_id].update({

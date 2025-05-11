@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-async def execute_agent(nl_task: str, root_url: str) -> dict:
+async def execute_agent(nl_task: str, root_url: str, browser_details: dict | None = None) -> dict:
     """
     Execute the browser agent with the given task and URL.
     Returns a dictionary with job status and steps.
@@ -39,37 +39,45 @@ async def execute_agent(nl_task: str, root_url: str) -> dict:
                 openai_api_key=os.getenv("OPENAI_API_KEY")
             )
         else:
-            raise ValueError("Either OPENAI_API_KEY or (AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY) environment variables are required")
+            raise ValueError("Either OPENAI_API_KEY or (AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_KEY) environment variables are required")
 
-        # Select the display index (e.g., 0 for primary, 1 for secondary)
-        monitor_index = 1  # Change to 0 or 1 depending on target display
+        port = browser_details.get("remote_debugging_port") if browser_details else None
+        chrome_path = browser_details.get("chrome_instance_path") if browser_details else None
 
-        monitor = get_monitors()[monitor_index]
+        if not port:
+            error_message = "Configuration error: execute_agent requires 'remote_debugging_port' in browser_details."
+            logger.error(error_message)
+            raise ValueError(error_message)
+        
+        if not chrome_path:
+            # Fallback to a default path if not provided, with a warning, or make it strictly required.
+            # For now, matching user snippet, but this should ideally come from browser_details.
+            default_chrome_path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+            logger.warning(f"'chrome_instance_path' not found in browser_details. Falling back to default: {default_chrome_path}")
+            chrome_path = default_chrome_path # Or raise ValueError if strictly required
+            # If you want to make it strict: 
+            # error_message = "Configuration error: execute_agent requires 'chrome_instance_path' in browser_details."
+            # logger.error(error_message)
+            # raise ValueError(error_message)
 
-        screen_width = monitor.width
-        screen_height = monitor.height
-        screen_x = monitor.x
-        screen_y = monitor.y
-
-        window_width = screen_width // 2
-        window_height = int(screen_height * 2 / 3)
-
-        window_x = screen_x + (screen_width - window_width)  # Right-aligned with equal left/right margins
-        window_y = screen_y + (screen_height - window_height) // 2  # Centered vertically
-
-        extra_args = [
-            f"--window-size={window_width},{window_height}",
-            f"--window-position={window_x},{window_y}",
-            "--disable-automation",  # optional, to reduce automation UI
-            "--force-device-scale-factor=1"  # ensure correct scaling
-        ]
+        logger.info(f"Attempting to connect to existing Chrome instance via CDP.")
+        logger.info(f"Using Chrome path: {chrome_path}, CDP port: {port}")
 
         browser_config = BrowserConfig(
-            extra_browser_args=extra_args,
+            chrome_instance_path=chrome_path,
             headless=False,
-            viewport=None
+            disable_security=True, # As per user request
+            cdp_url=f"http://localhost:{port}"
         )
-        custom_browser = Browser(config=browser_config)
+        
+        logger.debug(f"Initializing Browser with BrowserConfig: {browser_config}")
+        try:
+            custom_browser = Browser(config=browser_config)
+            custom_browser.page = None # As per user request
+            logger.info("Successfully initialized Browser and set page to None.")
+        except Exception as e:
+            logger.error(f"Failed to initialize Browser or set page: {e}", exc_info=True)
+            raise # Re-raise the exception to halt execution
 
         # Create a more specific task description
         specific_task = f"""
