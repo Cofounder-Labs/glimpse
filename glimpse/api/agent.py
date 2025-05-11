@@ -59,11 +59,14 @@ async def execute_agent(nl_task: str, root_url: str) -> dict:
             f"--window-size={window_width},{window_height}",
             f"--window-position={window_x},{window_y}",
             "--disable-automation",  # optional, to reduce automation UI
-            "--start-maximized",     # counterintuitively needed to *prevent* auto fullscreen on some setups
             "--force-device-scale-factor=1"  # ensure correct scaling
         ]
 
-        browser_config = BrowserConfig(extra_browser_args=extra_args)
+        browser_config = BrowserConfig(
+            extra_browser_args=extra_args,
+            headless=False,
+            viewport=None
+        )
         custom_browser = Browser(config=browser_config)
 
         # Create a more specific task description
@@ -93,4 +96,4 @@ async def execute_agent(nl_task: str, root_url: str) -> dict:
         
     except Exception as e:
         logger.error(f"Error running browser agent: {str(e)}")
-        raise 
+        raise
