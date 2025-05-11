@@ -46,9 +46,8 @@ MOCK_MODE=true poetry run python glimpse/run.py
 ```
 
 In mock mode, the server will:
-- Ignore actual request payloads
-- Return predefined responses from mock files
-- Simulate the demo generation process
+- Ignore actual demo request from the user
+- Simulate the demo generation process 
 
 ## API Endpoints
 

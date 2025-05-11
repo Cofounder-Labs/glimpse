@@ -73,9 +73,7 @@ async def execute_agent(nl_task: str, root_url: str) -> dict:
 
         # Create a more specific task description
         specific_task = f"""
-        Go to {root_url} and {nl_task}
-        
-        Important: Please complete this task step by step and stop when you see the search results.
+        {nl_task}
         """
         
         # Initialize the agent

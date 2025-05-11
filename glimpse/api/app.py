@@ -42,16 +42,6 @@ class DemoStep(BaseModel):
 
 # Mock mode configuration
 MOCK_MODE = os.getenv("MOCK_MODE", "false").lower() == "true"
-MOCK_DATA_DIR = Path(__file__).parent.parent / "mocks"
-
-def get_mock_response(endpoint: str, request_data: Optional[dict] = None) -> dict:
-    """Get mock response for an endpoint"""
-    mock_file = MOCK_DATA_DIR / f"{endpoint}.json"
-    if not mock_file.exists():
-        raise HTTPException(status_code=500, detail=f"Mock file not found for {endpoint}")
-    
-    with open(mock_file) as f:
-        return json.load(f)
 
 async def notify_job_completion(job_id: str, status: str):
     """Notify connected WebSocket clients about job completion."""
@@ -75,7 +65,18 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
         job_store[job_id]["progress"] = 0.1 # Initial progress
 
         # Run the agent (output is ignored as per requirement)
-        await execute_agent(nl_task, root_url)
+        if MOCK_MODE:
+            mock_nl_task = """
+            Go to https://browser-use.com
+            Click on docs link https://docs.browser-use.com/
+            Click on the Cloud API tab
+            Under API v1.0, click on the 'Get Task Status' button
+            Click on the "Try it" button
+            Stop
+            """
+            await execute_agent(mock_nl_task, root_url)
+        else:
+            await execute_agent(nl_task, root_url)
         
         final_status = "completed"
         job_store[job_id].update({
@@ -95,15 +96,6 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
 
 @app.post("/generate-demo", response_model=DemoStatus)
 async def generate_demo(request: DemoRequest, background_tasks: BackgroundTasks):
-    if MOCK_MODE:
-        mock_data = get_mock_response("generate_demo", request.dict())
-        # Ensure mock data has all required fields for DemoStatus
-        mock_data["created_at"] = datetime.now()
-        mock_data.setdefault("error", None)
-        mock_data.setdefault("completed_at", None)
-        mock_data.setdefault("steps", None)
-        return DemoStatus(**mock_data)
-    
     job_id = f"job_{datetime.now().timestamp()}"
     
     job_store[job_id] = {
@@ -121,14 +113,6 @@ async def generate_demo(request: DemoRequest, background_tasks: BackgroundTasks)
 
 @app.get("/demo-status/{job_id}", response_model=DemoStatus)
 async def get_demo_status(job_id: str):
-    if MOCK_MODE:
-        mock_data = get_mock_response("demo_status", {"job_id": job_id})
-        mock_data["created_at"] = datetime.now()
-        mock_data.setdefault("error", None)
-        mock_data.setdefault("completed_at", None)
-        mock_data.setdefault("steps", None) # Ensure steps is present
-        return DemoStatus(**mock_data)
-    
     if job_id not in job_store:
         raise HTTPException(status_code=404, detail="Job not found")
     
