@@ -1,9 +1,11 @@
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from browser_use import Agent
+from browser_use.browser.browser import Browser, BrowserConfig
 import asyncio
 from dotenv import load_dotenv
 import os
 import logging
+from screeninfo import get_monitors
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -36,7 +38,34 @@ async def execute_agent(nl_task: str, root_url: str) -> dict:
             )
         else:
             raise ValueError("Either OPENAI_API_KEY or (AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY) environment variables are required")
-        
+
+        # Select the display index (e.g., 0 for primary, 1 for secondary)
+        monitor_index = 1  # Change to 0 or 1 depending on target display
+
+        monitor = get_monitors()[monitor_index]
+
+        screen_width = monitor.width
+        screen_height = monitor.height
+        screen_x = monitor.x
+        screen_y = monitor.y
+
+        window_width = screen_width // 2
+        window_height = int(screen_height * 2 / 3)
+
+        window_x = screen_x + (screen_width - window_width)  # Right-aligned with equal left/right margins
+        window_y = screen_y + (screen_height - window_height) // 2  # Centered vertically
+
+        extra_args = [
+            f"--window-size={window_width},{window_height}",
+            f"--window-position={window_x},{window_y}",
+            "--disable-automation",  # optional, to reduce automation UI
+            "--start-maximized",     # counterintuitively needed to *prevent* auto fullscreen on some setups
+            "--force-device-scale-factor=1"  # ensure correct scaling
+        ]
+
+        browser_config = BrowserConfig(extra_browser_args=extra_args)
+        custom_browser = Browser(config=browser_config)
+
         # Create a more specific task description
         specific_task = f"""
         Go to {root_url} and {nl_task}
@@ -49,6 +78,7 @@ async def execute_agent(nl_task: str, root_url: str) -> dict:
         agent = Agent(
             task=specific_task,
             llm=llm,
+            browser=custom_browser,
             use_vision=False,  # Disable vision to reduce complexity
             max_failures=2,    # Limit the number of retries
         )
