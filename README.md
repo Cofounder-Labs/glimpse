@@ -21,6 +21,13 @@ cd glimpse
 poetry install
 ```
 
+4. Set up environment variables:
+   - Copy the example environment file:
+     ```bash
+     cp .env.example .env
+     ```
+   - Open the `.env` file and fill in your API keys and any other required configuration values.
+
 ## Running the Server
 
 ### Normal Mode
