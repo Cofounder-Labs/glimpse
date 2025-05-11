@@ -625,11 +625,38 @@ export default function V0Interface() {
     }
   }, [currentPage])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (inputText.trim()) {
       setSubmittedText(inputText)
       setCurrentPage(PageState.Loading)
+
+      // Backend API call
+      try {
+        const response = await fetch("http://127.0.0.1:8000/generate-demo", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            nl_task: inputText,
+            root_url: "google.com", // As per your example
+          }),
+        });
+
+        const responseBody = await response.text(); // Get raw text response like `| cat`
+
+        if (!response.ok) {
+          console.error("API Error:", response.status, responseBody);
+          // Optionally, handle error state in UI
+        } else {
+          console.log("API Success:", responseBody);
+          // Process responseData if needed for future steps
+        }
+      } catch (error) {
+        console.error("Network or other error during API call:", error);
+        // Optionally, handle error state in UI
+      }
     }
   }
 

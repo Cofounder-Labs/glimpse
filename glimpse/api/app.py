@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Set
 import json
@@ -9,6 +10,22 @@ import asyncio
 from datetime import datetime
 
 app = FastAPI(title="Glimpse API", description="API for generating and managing interactive demos")
+
+# CORS Middleware Configuration
+origins = [
+    "*",  # Allows all origins
+    # You can be more specific in production, e.g.:
+    # "http://localhost:3000", # If your frontend runs on port 3000
+    # "https://your-frontend-domain.com",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True, # Allows cookies to be included in requests
+    allow_methods=["*"],  # Allows all methods (GET, POST, OPTIONS, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 
 # In-memory job store and WebSocket connections
 job_store: Dict[str, Dict] = {}
