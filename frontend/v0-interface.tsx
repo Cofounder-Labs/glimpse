@@ -543,6 +543,7 @@ export default function V0Interface() {
   const [loadingDots, setLoadingDots] = useState("")
   const [activeSlide, setActiveSlide] = useState(0)
   const [publishedUrl, setPublishedUrl] = useState("")
+  const [jobId, setJobId] = useState<string | null>(null)
 
   // Generate 10 slides
   const slides = Array.from({ length: 10 }, (_, i) => ({
@@ -606,17 +607,6 @@ export default function V0Interface() {
     }
   }, [currentPage])
 
-  // Simulate loading time, then go directly to editor
-  useEffect(() => {
-    if (currentPage === PageState.Loading) {
-      const timer = setTimeout(() => {
-        setCurrentPage(PageState.Editor)
-      }, 3000)
-
-      return () => clearTimeout(timer)
-    }
-  }, [currentPage])
-
   // Generate a random URL for the published deck
   useEffect(() => {
     if (currentPage === PageState.Published) {
@@ -625,13 +615,68 @@ export default function V0Interface() {
     }
   }, [currentPage])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (inputText.trim()) {
-      setSubmittedText(inputText)
-      setCurrentPage(PageState.Loading)
+  // WebSocket effect for job status
+  useEffect(() => {
+    if (currentPage === PageState.Loading && jobId) {
+      const wsUrl = `ws://127.0.0.1:8000/ws/job-status/${jobId}`;
+      const ws = new WebSocket(wsUrl);
 
-      // Backend API call
+      ws.onopen = () => {
+        console.log(`WebSocket connection established to ${wsUrl}`);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data as string);
+          console.log("WebSocket message received:", message);
+
+          if (message.job_id === jobId) {
+            if (message.status === "completed") {
+              console.log("Job completed. Transitioning to Editor.");
+              setCurrentPage(PageState.Editor);
+              ws.close();
+            } else if (message.status === "failed") {
+              console.error("Job failed:", message.error || "Unknown error from backend");
+              setCurrentPage(PageState.Home);
+              setJobId(null); // Reset job ID on failure
+              ws.close();
+            } else if (message.status === "processing" || message.status === "queued") {
+              console.log(`Job status: ${message.status}, Progress: ${message.progress ? (message.progress * 100).toFixed(0) + '%' : 'N/A'}`);
+              // Optionally update a more detailed loading indicator here
+            }
+          }
+        } catch (e) {
+          console.error("Error parsing WebSocket message or in onmessage handler:", e);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        setCurrentPage(PageState.Home); // Fallback on WebSocket error
+        setJobId(null);
+      };
+
+      ws.onclose = (event) => {
+        console.log("WebSocket connection closed.", event.code, event.reason);
+      };
+
+      // Cleanup function to close WebSocket when component unmounts or dependencies change
+      return () => {
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          console.log("Closing WebSocket connection due to effect cleanup.");
+          ws.close();
+        }
+      };
+    }
+  }, [currentPage, jobId, setCurrentPage, setJobId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputText.trim()) {
+      setSubmittedText(inputText);
+      setCurrentPage(PageState.Loading);
+      setJobId(null); // Reset job ID before new request
+
       try {
         const response = await fetch("http://127.0.0.1:8000/generate-demo", {
           method: "POST",
@@ -640,33 +685,40 @@ export default function V0Interface() {
           },
           body: JSON.stringify({
             nl_task: inputText,
-            root_url: "google.com", // As per your example
+            root_url: "google.com",
           }),
         });
 
-        const responseBody = await response.text(); // Get raw text response like `| cat`
-
         if (!response.ok) {
-          console.error("API Error:", response.status, responseBody);
-          // Optionally, handle error state in UI
+          const errorBody = await response.text();
+          console.error("API Error creating job:", response.status, errorBody);
+          setCurrentPage(PageState.Home);
+          return;
+        }
+
+        const responseData = await response.json();
+        console.log("Job created successfully:", responseData);
+        if (responseData.job_id) {
+          setJobId(responseData.job_id);
         } else {
-          console.log("API Success:", responseBody);
-          // Process responseData if needed for future steps
+          console.error("API Error: No job_id received from /generate-demo");
+          setCurrentPage(PageState.Home);
         }
       } catch (error) {
-        console.error("Network or other error during API call:", error);
-        // Optionally, handle error state in UI
+        console.error("Network or other error during job creation:", error);
+        setCurrentPage(PageState.Home);
       }
     }
-  }
+  };
 
   const handleStartNewTask = () => {
-    setInputText("")
-    setSubmittedText("")
-    setCurrentPage(PageState.Home)
-    setActiveSlide(0)
-    setPublishedUrl("") // Reset so it's regenerated if needed
-  }
+    setInputText("");
+    setSubmittedText("");
+    setCurrentPage(PageState.Home);
+    setActiveSlide(0);
+    setPublishedUrl("");
+    setJobId(null); // Reset jobId
+  };
 
   const handlePublish = () => {
     setCurrentPage(PageState.Published)
