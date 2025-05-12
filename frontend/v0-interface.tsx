@@ -516,19 +516,33 @@ const InputForm = ({
   inputText: string
   setInputText: (text: string) => void
   handleSubmit: (e: React.FormEvent) => void
-}) => (
+}) => {
+  const [demoType, setDemoType] = useState("feature"); 
+
+  return (
   <form onSubmit={handleSubmit} className="w-full max-w-3xl mb-8">
-    <div className="border rounded-2xl shadow-sm">
+    <div className="border rounded-2xl shadow-sm bg-white">
       <div className="p-6">
         <textarea
-          placeholder="Ask Glimpse to build"
+          placeholder="Ask Glimpse to build..."
           className="w-full outline-none text-gray-700 text-lg resize-none min-h-[100px]"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           rows={3}
         />
       </div>
-      <div className="border-t p-3 flex justify-end items-center">
+      {/* MODIFIED: Dropdown is now part of the bottom bar, aligned to the left */}
+      <div className="border-t p-3 flex justify-between items-center">
+        <div>
+          <select
+            value={demoType}
+            onChange={(e) => setDemoType(e.target.value)}
+            className="w-auto bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 text-sm text-gray-600 focus:outline-none focus:ring-1 focus:ring-black focus:border-black hover:bg-gray-100 transition-colors"
+          >
+            <option value="feature">Build a feature demo</option>
+            <option value="clone">Build an interactable clone</option>
+          </select>
+        </div>
         <div className="flex items-center gap-2">
           <button type="button" className="p-2 text-gray-500 hover:text-gray-700">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -553,7 +567,8 @@ const InputForm = ({
       </div>
     </div>
   </form>
-)
+  )
+}
 
 // SuggestedActions component
 const SuggestedActions = () => (
