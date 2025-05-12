@@ -18,6 +18,10 @@ import {
   Copy,
   Share2,
   ArrowLeft,
+  Clock,
+  Grid,
+  Users2,
+  Star,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 
@@ -602,7 +606,77 @@ const PreviousDemosSection = ({ previousDemos }: { previousDemos: any[] }) => (
   </div>
 )
 
-// HomePage component
+// NEW: Sidepanel component
+const Sidepanel = () => {
+  const recentItems = [
+    "New Cloud Offering",
+    "Chat UI",
+    "Latest dashboard",
+  ];
+
+  return (
+    <div className="w-72 bg-gray-50 border-r border-gray-200 h-screen flex flex-col p-4 space-y-3 text-sm">
+      {/* Top Logo/Personal section - Updated with icon */}
+      <div className="mb-4 p-2 flex items-center gap-2"> {/* Make this a flex container */}
+        {/* Gradient Circle Icon */}
+        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex-shrink-0"></div>
+        {/* Company Name */}
+        <span className="font-semibold text-lg">Team Browser Use</span> 
+      </div>
+
+      <button className="w-full bg-white border border-gray-300 rounded-lg py-2.5 text-gray-700 hover:bg-gray-100 transition-colors">
+        New Chat
+      </button>
+
+      {/* Navigation Links */}
+      <nav className="space-y-1.5">
+        <a href="#" className="flex items-center gap-3 px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
+          <Clock size={18} />
+          <span>Recents</span>
+        </a>
+        <a href="#" className="flex items-center gap-3 px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
+          <Grid size={18} />
+          <span>Projects</span>
+        </a>
+      
+      </nav>
+
+      {/* Divider */}
+      <div className="pt-2">
+        <a href="#" className="flex items-center justify-between px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
+          <div className="flex items-center gap-3">
+            <Star size={18} />
+            <span>Favorite Projects</span>
+          </div>
+          <ChevronRight size={16} />
+        </a>
+        <a href="#" className="flex items-center justify-between px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
+          <div className="flex items-center gap-3">
+            <Star size={18} />
+            <span>Favorite Chats</span>
+          </div>
+          <ChevronRight size={16} />
+        </a>
+      </div>
+
+      {/* Recent Items Section */}
+      <div className="pt-2 flex-grow overflow-y-auto space-y-1 pr-1">
+        <div className="flex items-center justify-between px-2 py-1.5 text-gray-600">
+          <span className="font-medium">Recent</span>
+          <ChevronDown size={16} />
+        </div>
+        {recentItems.map((item, index) => (
+          <a key={index} href="#" className="block px-2 py-1.5 text-gray-500 hover:bg-gray-200 rounded-md truncate">
+            {item}
+          </a>
+        ))}
+      </div>
+
+    </div>
+  );
+};
+
+// HomePage component - Modified to include Sidepanel
 const HomePage = ({
   inputText,
   setInputText,
@@ -614,11 +688,17 @@ const HomePage = ({
   handleSubmit: (e: React.FormEvent) => void
   previousDemos: any[]
 }) => (
-  <div className="container mx-auto px-4 py-16 flex flex-col items-center">
-    <h1 className="text-4xl font-bold text-center mb-8">What are we demoing today?</h1>
-    <InputForm inputText={inputText} setInputText={setInputText} handleSubmit={handleSubmit} />
-    <SuggestedActions />
-    <PreviousDemosSection previousDemos={previousDemos} />
+  // Use flex to position Sidepanel and main content
+  <div className="flex h-screen bg-white">
+    <Sidepanel />
+    <div className="flex-1 flex flex-col items-center overflow-y-auto">
+      <div className="container mx-auto px-4 py-16 flex flex-col items-center w-full">
+        <h1 className="text-4xl font-bold text-center mb-8">What are we demoing today?</h1>
+        <InputForm inputText={inputText} setInputText={setInputText} handleSubmit={handleSubmit} />
+        <SuggestedActions />
+        <PreviousDemosSection previousDemos={previousDemos} />
+      </div>
+    </div>
   </div>
 )
 
