@@ -229,11 +229,17 @@ const SlidesSidebar = ({
         } hover:border-gray-400 transition-colors`}
         onClick={() => setActiveSlide(index)}
       >
-        <div className="aspect-video bg-white rounded-md flex items-center justify-center relative">
-          <span className="absolute bottom-1 left-1 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center border">
+        <div className="aspect-video bg-white rounded-md flex items-center justify-center relative overflow-hidden">
+          <span className="absolute bottom-1 left-1 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center border z-10">
             {index + 1}
           </span>
-          <div className="text-xs text-gray-400">{slide.content}</div>
+          <Image
+            src={slide.content}
+            alt={slide.title}
+            layout="fill"
+            objectFit="contain"
+            className="absolute inset-0 w-full h-full"
+          />
         </div>
       </div>
     ))}
@@ -331,11 +337,17 @@ const EditorView = ({
             } hover:border-gray-400 transition-colors`}
             onClick={() => setActiveSlide(index)}
           >
-            <div className="aspect-video bg-white rounded-md flex items-center justify-center relative">
-              <span className="absolute bottom-1 left-1 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center border">
+            <div className="aspect-video bg-white rounded-md flex items-center justify-center relative overflow-hidden">
+              <span className="absolute bottom-1 left-1 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center border z-10">
                 {index + 1}
               </span>
-              <div className="text-xs text-gray-400">{slide.content}</div>
+              <Image
+                src={slide.content}
+                alt={slide.title}
+                layout="fill"
+                objectFit="contain"
+                className="absolute inset-0 w-full h-full"
+              />
             </div>
           </div>
         ))}
@@ -604,12 +616,17 @@ export default function V0Interface() {
   const [publishedUrl, setPublishedUrl] = useState("")
   const [jobId, setJobId] = useState<string | null>(null)
 
-  // Generate 10 slides
-  const slides = Array.from({ length: 10 }, (_, i) => ({
-    id: i,
-    title: `Slide ${i + 1}`,
-    content: i === 0 ? "Title Slide" : `Content for slide ${i + 1}`,
-  }))
+  // Generate slides based on images in the public folder
+  const imageSlides = [
+    { id: 0, title: "Slide 1", content: "/1.png" },
+    { id: 1, title: "Slide 2", content: "/2.png" },
+    { id: 2, title: "Slide 3", content: "/3.png" },
+    { id: 3, title: "Slide 4", content: "/4.png" },
+    { id: 4, title: "Slide 5", content: "/5.png" },
+  ]
+
+  // Use imageSlides instead of the generated array
+  const slides = imageSlides;
 
   // Previous demos data
   const previousDemos = [
