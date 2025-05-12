@@ -608,20 +608,88 @@ const PreviousDemosSection = ({ previousDemos }: { previousDemos: any[] }) => (
 
 // NEW: Sidepanel component
 const Sidepanel = () => {
-  const recentItems = [
-    "New Cloud Offering",
-    "Chat UI",
-    "Latest dashboard",
+  // Team data
+  const teams = [
+    { name: "Team Browser Use", logo: "/browser-use.png" },
+    { name: "GitHub for Education", logo: "/github.png" },
+    { name: "Storylane", logo: "/storylane.png" },
+    { name: "Team Glimpse", logo: "/glimpse.png" },
   ];
 
+  // State for dropdown
+  const [selectedTeam, setSelectedTeam] = useState(teams[0]); // Default to first team
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const recentItems = [
+    "Screenshot clone request",
+    "Chat UI with Vibration",
+    "Shadcn dashboard",
+    "Procuro landing page desi...",
+    "Landing page redesign",
+    "Clone Screenshot",
+    "Procuro landing page",
+    "Fork of Agentified landing ...",
+    "Motion floppy disk animati...",
+    "Agentified landing page",
+    "Space Theme Landing Pag",
+    "The Orb",
+    "3D Model Generator, Powe...",
+    "Agentified.fyi landing page"
+  ];
+
+  // Define type for team object
+  type Team = {
+    name: string;
+    logo: string;
+  };
+
+  // Handler for selecting a team - Add type for team parameter
+  const handleTeamSelect = (team: Team) => {
+    setSelectedTeam(team);
+    setIsDropdownOpen(false);
+  };
+
   return (
-    <div className="w-72 bg-gray-50 border-r border-gray-200 h-screen flex flex-col p-4 space-y-3 text-sm">
-      {/* Top Logo/Personal section - Updated with icon */}
-      <div className="mb-4 p-2 flex items-center gap-2"> {/* Make this a flex container */}
-        {/* Gradient Circle Icon */}
-        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex-shrink-0"></div>
-        {/* Company Name */}
-        <span className="font-semibold text-lg">Team Browser Use</span> 
+    <div className="w-72 bg-gray-50 border-r border-gray-200 h-screen flex flex-col p-4 space-y-3 text-sm relative"> {/* Added relative positioning for dropdown */}
+      {/* Top Logo/Team Dropdown Section */}
+      <div className="mb-4 relative"> {/* Container for dropdown */}
+        {/* Dropdown Trigger Button */}
+        <button
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-200 w-full text-left transition-colors"
+        >
+          <Image
+            src={selectedTeam.logo}
+            alt={`${selectedTeam.name} logo`}
+            width={24} // Specify width
+            height={24} // Specify height
+            className="rounded-full flex-shrink-0 object-contain"
+          />
+          <span className="font-semibold text-lg flex-grow truncate">{selectedTeam.name}</span>
+          <ChevronDown size={16} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {/* Dropdown Menu */}
+        {isDropdownOpen && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1">
+            {teams.map((team) => (
+              <button
+                key={team.name}
+                onClick={() => handleTeamSelect(team)}
+                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 w-full text-left text-sm"
+              >
+                <Image
+                  src={team.logo}
+                  alt={`${team.name} logo`}
+                  width={20}
+                  height={20}
+                  className="rounded-full flex-shrink-0 object-contain"
+                />
+                <span className="flex-grow truncate">{team.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <button className="w-full bg-white border border-gray-300 rounded-lg py-2.5 text-gray-700 hover:bg-gray-100 transition-colors">
