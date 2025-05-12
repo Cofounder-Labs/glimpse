@@ -247,30 +247,22 @@ const SlidesSidebar = ({
 )
 
 // SlideEditor component
-const SlideEditor = () => (
+const SlideEditor = ({ slide }: { slide: { id: number; title: string; content: string } | null }) => (
   <div className="flex-1 bg-gradient-to-b from-purple-600 to-purple-200 flex items-center justify-center p-4 overflow-auto">
-    <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl aspect-video flex items-center justify-center">
-      <div className="text-center p-8">
-        <h2 className="text-xl text-gray-400 mb-6">Add content</h2>
-        <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
-          <button className="flex flex-col items-center gap-2 p-4 border rounded-lg hover:bg-gray-50 text-center transition-colors">
-            <Upload className="w-6 h-6 text-gray-500" />
-            <span>Upload</span>
-          </button>
-          <button className="flex flex-col items-center gap-2 p-4 border rounded-lg hover:bg-gray-50 text-center transition-colors">
-            <FileText className="w-6 h-6 text-gray-500" />
-            <span>Library</span>
-          </button>
-          <button className="flex flex-col items-center gap-2 p-4 border rounded-lg hover:bg-gray-50 text-center transition-colors">
-            <Code className="w-6 h-6 text-gray-500" />
-            <span>Code</span>
-          </button>
-          <button className="flex flex-col items-center gap-2 p-4 border rounded-lg hover:bg-gray-50 text-center transition-colors">
-            <Monitor className="w-6 h-6 text-gray-500" />
-            <span>Screen</span>
-          </button>
+    <div className="bg-white rounded-lg shadow-lg h-[85vh] aspect-[16/16] flex items-center justify-center relative overflow-hidden">
+      {slide ? (
+        <Image
+          src={slide.content}
+          alt={slide.title}
+          layout="fill"
+          objectFit="cover"
+          className="absolute inset-0 w-full h-full"
+        />
+      ) : (
+        <div className="text-center p-8">
+          <h2 className="text-xl text-gray-400 mb-6">Select a slide</h2>
         </div>
-      </div>
+      )}
     </div>
   </div>
 )
@@ -352,31 +344,7 @@ const EditorView = ({
           </div>
         ))}
       </div>
-      <div className="flex-1 bg-gradient-to-b from-purple-600 to-purple-200 flex items-center justify-center p-4 overflow-auto">
-        <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl aspect-video flex items-center justify-center">
-          <div className="text-center p-8">
-            <h2 className="text-xl text-gray-400 mb-6">Add content</h2>
-            <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
-              <button className="flex flex-col items-center gap-2 p-4 border rounded-lg hover:bg-gray-50 text-center transition-colors">
-                <Upload className="w-6 h-6 text-gray-500" />
-                <span>Upload</span>
-              </button>
-              <button className="flex flex-col items-center gap-2 p-4 border rounded-lg hover:bg-gray-50 text-center transition-colors">
-                <FileText className="w-6 h-6 text-gray-500" />
-                <span>Library</span>
-              </button>
-              <button className="flex flex-col items-center gap-2 p-4 border rounded-lg hover:bg-gray-50 text-center transition-colors">
-                <Code className="w-6 h-6 text-gray-500" />
-                <span>Code</span>
-              </button>
-              <button className="flex flex-col items-center gap-2 p-4 border rounded-lg hover:bg-gray-50 text-center transition-colors">
-                <Monitor className="w-6 h-6 text-gray-500" />
-                <span>Screen</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <SlideEditor slide={slides[activeSlide]} />
       <div className="w-80 flex flex-col border-l bg-white">
         <div className="flex-1 overflow-y-auto">
           <div className="p-6">
