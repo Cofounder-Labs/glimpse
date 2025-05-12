@@ -249,14 +249,14 @@ const SlidesSidebar = ({
 // SlideEditor component
 const SlideEditor = ({ slide }: { slide: { id: number; title: string; content: string } | null }) => (
   <div className="flex-1 bg-gradient-to-b from-purple-600 to-purple-200 flex items-center justify-center p-4 overflow-auto">
-    <div className="bg-white rounded-lg shadow-lg h-[85vh] aspect-[16/16] flex items-center justify-center relative overflow-hidden">
+    <div className="bg-white rounded-lg shadow-lg h-[85vh] aspect-[16/16] flex items-center justify-center relative overflow-hidden pt-16">
       {slide ? (
         <Image
           src={slide.content}
           alt={slide.title}
           layout="fill"
           objectFit="cover"
-          className="absolute inset-0 w-full h-full"
+          className="object-cover w-full h-full p-4"
         />
       ) : (
         <div className="text-center p-8">
