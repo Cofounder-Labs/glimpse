@@ -118,70 +118,116 @@ const Slide = ({
 // PublishedView component
 const PublishedView = ({
   submittedText,
-  publishedUrl,
+  slides,
+  bgColor,
   handleStartNewTask,
 }: {
   submittedText: string
-  publishedUrl: string
+  slides: { id: number; title: string; content: string }[]
+  bgColor: string
   handleStartNewTask: () => void
-}) => (
-  <div className="min-h-screen bg-white p-8">
-    <div className="max-w-5xl mx-auto">
-      <div className="mb-8">
-        <button onClick={handleStartNewTask} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
-          <ArrowLeft className="w-5 h-5" />
-          <span>Back to home</span>
-        </button>
-      </div>
+}) => {
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
 
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4">Your Glimpse has been published!</h1>
-        <p className="text-gray-500 max-w-2xl mx-auto">
-          Your demo is now available. Share the link below with your audience.
-        </p>
-      </div>
+  const goToPrevious = () => {
+    setCurrentSlideIndex((prevIndex) => (prevIndex > 0 ? prevIndex - 1 : prevIndex))
+  }
 
-      <div className="bg-gray-50 border rounded-lg p-8 mb-8">
-        <div className="aspect-video bg-white rounded-lg border shadow-lg overflow-hidden mb-8">
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-purple-600 to-purple-200 p-8">
-            <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl aspect-video flex items-center justify-center">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold mb-4">{submittedText || "Your Presentation"}</h2>
-                <p className="text-gray-500">10 slides • Created with Glimpse</p>
-              </div>
-            </div>
-          </div>
+  const goToNext = () => {
+    setCurrentSlideIndex((prevIndex) => (prevIndex < slides.length - 1 ? prevIndex + 1 : prevIndex))
+  }
+
+  const currentSlide = slides[currentSlideIndex]
+  const publishedUrlDisplay = `https://glimpse.show/demo/${Math.random().toString(36).substring(2, 8)}` // Generate a dummy URL for display
+
+  return (
+    <div className="min-h-screen bg-white p-8">
+      <div className="max-w-5xl mx-auto">
+        {/* Back Button */}
+        <div className="mb-8">
+          <button onClick={handleStartNewTask} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to home</span>
+          </button>
         </div>
 
-        <div className="flex flex-col items-center">
-          <p className="text-gray-500 mb-3">Share this link with your audience:</p>
-          <div className="flex items-center gap-2 w-full max-w-xl">
-            <div className="flex-1 bg-white border rounded-l-lg p-3 text-gray-700 overflow-hidden overflow-ellipsis">
-              {publishedUrl}
-            </div>
-            <button className="bg-gray-100 border border-l-0 rounded-r-lg p-3 text-gray-700 hover:bg-gray-200">
-              <Copy className="w-5 h-5" />
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold mb-4">Your Glimpse has been published!</h1>
+          <p className="text-gray-500 max-w-2xl mx-auto">
+            Your interactive demo is now available. Share the link below.
+          </p>
+        </div>
+
+        {/* Slideshow Section */}
+        <div className={`border rounded-lg p-8 mb-8 ${bgColor}`}> {/* Apply background color here */}
+          {/* Slideshow Display Area */}
+          <div className="relative w-full aspect-video bg-white/80 backdrop-blur-md rounded-lg shadow-xl overflow-hidden flex items-center justify-center mb-6">
+            {currentSlide && (
+              <Image
+                src={currentSlide.content}
+                alt={currentSlide.title}
+                layout="fill"
+                objectFit="contain" // Use contain for slideshow view
+                className="absolute inset-0 w-full h-full"
+                priority={true} // Prioritize loading the visible slide image
+              />
+            )}
+          </div>
+
+          {/* Navigation Controls */}
+          <div className="flex items-center justify-between w-full">
+            <button
+              onClick={goToPrevious}
+              disabled={currentSlideIndex === 0}
+              className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed bg-white/70 backdrop-blur-sm flex items-center gap-2 text-sm"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-700 bg-white/70 backdrop-blur-sm px-3 py-1 rounded-full">
+              Slide {currentSlideIndex + 1} of {slides.length}
+            </span>
+            <button
+              onClick={goToNext}
+              disabled={currentSlideIndex === slides.length - 1}
+              className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed bg-white/70 backdrop-blur-sm flex items-center gap-2 text-sm"
+            >
+              Next
             </button>
           </div>
         </div>
-      </div>
 
-      <div className="flex justify-center gap-4">
-        <button className="px-6 py-3 border rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-          <Share2 className="w-5 h-5" />
-          <span>Share</span>
-        </button>
-        <button
-          onClick={handleStartNewTask}
-          className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 flex items-center gap-2"
-        >
-          <PlusCircle className="w-5 h-5" />
-          <span>Create new</span>
-        </button>
+         {/* Share Link Section (Optional - kept original structure) */}
+         <div className="flex flex-col items-center mb-8">
+           <p className="text-gray-500 mb-3">Share this link with your audience:</p>
+           <div className="flex items-center gap-2 w-full max-w-xl">
+             <div className="flex-1 bg-white border rounded-l-lg p-3 text-gray-700 overflow-hidden overflow-ellipsis">
+               {publishedUrlDisplay} {/* Show the generated dummy URL */}
+             </div>
+             <button className="bg-gray-100 border border-l-0 rounded-r-lg p-3 text-gray-700 hover:bg-gray-200">
+               <Copy className="w-5 h-5" />
+             </button>
+           </div>
+         </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-center gap-4">
+          <button className="px-6 py-3 border rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+            <Share2 className="w-5 h-5" />
+            <span>Share</span>
+          </button>
+          <button
+            onClick={handleStartNewTask}
+            className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 flex items-center gap-2"
+          >
+            <PlusCircle className="w-5 h-5" />
+            <span>Create new</span>
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-)
+  )
+}
 
 // EditorNavBar component
 const EditorNavBar = ({ handlePublish }: { handlePublish: () => void }) => (
@@ -247,8 +293,8 @@ const SlidesSidebar = ({
 )
 
 // SlideEditor component
-const SlideEditor = ({ slide }: { slide: { id: number; title: string; content: string } | null }) => (
-  <div className="flex-1 bg-gradient-to-b from-purple-600 to-purple-200 flex items-center justify-center p-4 overflow-auto">
+const SlideEditor = ({ slide, bgColor }: { slide: { id: number; title: string; content: string } | null; bgColor: string }) => (
+  <div className={`flex-1 ${bgColor} flex items-center justify-center p-4 overflow-auto`}>
     <div className="bg-white rounded-lg shadow-lg h-[85vh] aspect-[16/16] flex items-center justify-center relative overflow-hidden pt-16">
       {slide ? (
         <Image
@@ -289,158 +335,177 @@ const EditorView = ({
   slides,
   activeSlide,
   setActiveSlide,
+  selectedBgColor,
+  setSelectedBgColor,
 }: {
   handlePublish: () => void
   slides: { id: number; title: string; content: string }[]
   activeSlide: number
   setActiveSlide: (index: number) => void
-}) => (
-  <div className="h-screen flex flex-col bg-white">
-    <div className="border-b flex items-center justify-between px-6 py-3">
-      <div className="flex items-center gap-4">
-        <button className="p-1 text-gray-600 hover:text-gray-900">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div className="font-medium">browser-use.com</div>
-      </div>
+  selectedBgColor: string
+  setSelectedBgColor: (color: string) => void
+}) => {
+  // Define background color options
+  const backgroundColors = [
+    { name: 'purple', class: 'bg-gradient-to-b from-purple-600 to-purple-200', displayClass: 'bg-purple-200' },
+    { name: 'green', class: 'bg-gradient-to-b from-green-500 to-green-200', displayClass: 'bg-green-200' },
+    { name: 'orange', class: 'bg-gradient-to-b from-orange-500 to-orange-200', displayClass: 'bg-orange-200' },
+    { name: 'black', class: 'bg-black', displayClass: 'bg-black' },
+    { name: 'white', class: 'bg-white', displayClass: 'bg-white border' }, // Added border for visibility
+  ];
 
-      <div className="flex items-center gap-2">
-        <div className="border-b-2 border-black px-4 py-2 text-black font-medium">Edit</div>
-        <div className="px-4 py-2 text-gray-600 hover:text-gray-900 cursor-pointer">Preview</div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <button onClick={handlePublish} className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800">
-          Publish
-        </button>
-        <button className="px-3 py-1 border rounded-lg text-gray-600 hover:bg-gray-50">Share</button>
-        <button className="p-1 text-gray-600 hover:text-gray-900">
-          <MoreHorizontal className="w-5 h-5" />
-        </button>
-      </div>
-    </div>
-    <div className="flex flex-1 overflow-hidden">
-      <div className="w-[172px] border-r overflow-y-auto p-3 bg-white">
-        {slides.map((slide, index) => (
-          <div
-            key={slide.id}
-            className={`mb-3 p-1 rounded-lg cursor-pointer border ${
-              activeSlide === index ? "border-black" : "border-gray-200"
-            } hover:border-gray-400 transition-colors`}
-            onClick={() => setActiveSlide(index)}
-          >
-            <div className="aspect-video bg-white rounded-md flex items-center justify-center relative overflow-hidden">
-              <span className="absolute bottom-1 left-1 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center border z-10">
-                {index + 1}
-              </span>
-              <Image
-                src={slide.content}
-                alt={slide.title}
-                layout="fill"
-                objectFit="contain"
-                className="absolute inset-0 w-full h-full"
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-      <SlideEditor slide={slides[activeSlide]} />
-      <div className="w-80 flex flex-col border-l bg-white">
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-6">
-            <div className="mb-6">
-              <h3 className="font-medium text-lg mb-4">Design</h3>
-
-              <div className="space-y-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Theme</span>
-                  <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-md">
-                    <div className="w-4 h-4 rounded-full bg-black"></div>
-                    <span className="text-sm">Glimpse</span>
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Background</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-purple-200 cursor-pointer border-2 border-purple-400"></div>
-                    <div className="w-6 h-6 rounded-full bg-green-200 cursor-pointer"></div>
-                    <div className="w-6 h-6 rounded-full bg-orange-200 cursor-pointer"></div>
-                    <div className="w-6 h-6 rounded-full bg-black cursor-pointer"></div>
-                    <div className="w-6 h-6 rounded-full bg-white cursor-pointer border"></div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Font</span>
-                  <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-md">
-                    <span className="text-sm">Inter</span>
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Cursor</span>
-                  <div className="flex items-center gap-2">
-                    <div className="border rounded-md px-2 py-1 text-xs cursor-pointer hover:bg-gray-50">K</div>
-                    <div className="border rounded-md px-2 py-1 text-xs cursor-pointer hover:bg-gray-50">→</div>
-                    <div className="border rounded-md px-2 py-1 text-xs cursor-pointer hover:bg-gray-50">••</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Audio</span>
-                  <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
-                    <span className="text-sm">None</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t">
-              <h3 className="font-medium text-lg mb-4">Content</h3>
-
-              <div className="space-y-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Slide title</span>
-                  <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
-                    <span className="text-sm">Edit</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Transitions</span>
-                  <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
-                    <span className="text-sm">Fade</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+  return (
+    <div className="h-screen flex flex-col bg-white">
+      <div className="border-b flex items-center justify-between px-6 py-3">
+        <div className="flex items-center gap-4">
+          <button className="p-1 text-gray-600 hover:text-gray-900">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="font-medium">browser-use.com</div>
         </div>
-        <div className="p-4 border-t">
-          <textarea
-            placeholder="Ask Glimpse to edit this slide..."
-            className="w-full p-3 border rounded-lg outline-none text-sm resize-none focus:ring-1 focus:ring-black"
-            rows={2}
-          />
-          <div className="flex justify-end mt-2">
-            <button
-              type="button"
-              className="px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-colors"
+
+        <div className="flex items-center gap-2">
+          <div className="border-b-2 border-black px-4 py-2 text-black font-medium">Edit</div>
+          <div className="px-4 py-2 text-gray-600 hover:text-gray-900 cursor-pointer">Preview</div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button onClick={handlePublish} className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800">
+            Publish
+          </button>
+          <button className="px-3 py-1 border rounded-lg text-gray-600 hover:bg-gray-50">Share</button>
+          <button className="p-1 text-gray-600 hover:text-gray-900">
+            <MoreHorizontal className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+      <div className="flex flex-1 overflow-hidden">
+        <div className="w-[172px] border-r overflow-y-auto p-3 bg-white">
+          {slides.map((slide, index) => (
+            <div
+              key={slide.id}
+              className={`mb-3 p-1 rounded-lg cursor-pointer border ${
+                activeSlide === index ? "border-black" : "border-gray-200"
+              } hover:border-gray-400 transition-colors`}
+              onClick={() => setActiveSlide(index)}
             >
-              Generate
-            </button>
+              <div className="aspect-video bg-white rounded-md flex items-center justify-center relative overflow-hidden">
+                <span className="absolute bottom-1 left-1 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center border z-10">
+                  {index + 1}
+                </span>
+                <Image
+                  src={slide.content}
+                  alt={slide.title}
+                  layout="fill"
+                  objectFit="contain"
+                  className="absolute inset-0 w-full h-full"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        <SlideEditor slide={slides[activeSlide]} bgColor={selectedBgColor} />
+        <div className="w-80 flex flex-col border-l bg-white">
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-6">
+              <div className="mb-6">
+                <h3 className="font-medium text-lg mb-4">Design</h3>
+
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Theme</span>
+                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-md">
+                      <div className="w-4 h-4 rounded-full bg-black"></div>
+                      <span className="text-sm">Glimpse</span>
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Background</span>
+                    <div className="flex items-center gap-2">
+                      {backgroundColors.map((color) => (
+                        <div
+                          key={color.name}
+                          onClick={() => setSelectedBgColor(color.class)}
+                          className={`w-6 h-6 rounded-full cursor-pointer ${color.displayClass} ${
+                            selectedBgColor === color.class ? 'ring-2 ring-offset-1 ring-blue-500' : '' // Highlight selected
+                          }`}
+                        ></div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Font</span>
+                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-md">
+                      <span className="text-sm">Inter</span>
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Cursor</span>
+                    <div className="flex items-center gap-2">
+                      <div className="border rounded-md px-2 py-1 text-xs cursor-pointer hover:bg-gray-50">K</div>
+                      <div className="border rounded-md px-2 py-1 text-xs cursor-pointer hover:bg-gray-50">→</div>
+                      <div className="border rounded-md px-2 py-1 text-xs cursor-pointer hover:bg-gray-50">••</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Audio</span>
+                    <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
+                      <span className="text-sm">None</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t">
+                <h3 className="font-medium text-lg mb-4">Content</h3>
+
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Slide title</span>
+                    <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
+                      <span className="text-sm">Edit</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Transitions</span>
+                    <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
+                      <span className="text-sm">Fade</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="p-4 border-t">
+            <textarea
+              placeholder="Ask Glimpse to edit this slide..."
+              className="w-full p-3 border rounded-lg outline-none text-sm resize-none focus:ring-1 focus:ring-black"
+              rows={2}
+            />
+            <div className="flex justify-end mt-2">
+              <button
+                type="button"
+                className="px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-colors"
+              >
+                Generate
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-)
+  )
+}
 
 // InputForm component
 const InputForm = ({
@@ -581,8 +646,8 @@ export default function V0Interface() {
   const [loadingText, setLoadingText] = useState("Glimpse agent is now loading")
   const [loadingDots, setLoadingDots] = useState("")
   const [activeSlide, setActiveSlide] = useState(0)
-  const [publishedUrl, setPublishedUrl] = useState("")
   const [jobId, setJobId] = useState<string | null>(null)
+  const [selectedBgColor, setSelectedBgColor] = useState("bg-gradient-to-b from-purple-600 to-purple-200")
 
   // Generate slides based on images in the public folder
   const imageSlides = [
@@ -593,7 +658,6 @@ export default function V0Interface() {
     { id: 4, title: "Slide 5", content: "/5.png" },
   ]
 
-  // Use imageSlides instead of the generated array
   const slides = imageSlides;
 
   // Previous demos data
@@ -615,15 +679,13 @@ export default function V0Interface() {
     },
   ]
 
-  // Dynamic loading text effect
   useEffect(() => {
     if (currentPage !== PageState.Loading) {
-      setLoadingText("Glimpse agent is now loading") // Reset when not loading
+      setLoadingText("Glimpse agent is now loading")
       setLoadingDots("")
       return
     }
 
-    // Simulate thinking steps
     const thinkingSteps = [
       "Glimpse agent is now loading",
       "Analyzing request",
@@ -637,7 +699,6 @@ export default function V0Interface() {
       currentStep++
     }, 800)
 
-    // Animate the dots
     const dotsInterval = setInterval(() => {
       setLoadingDots((prev) => {
         if (prev === "...") return ""
@@ -651,15 +712,12 @@ export default function V0Interface() {
     }
   }, [currentPage])
 
-  // Generate a random URL for the published deck
   useEffect(() => {
     if (currentPage === PageState.Published) {
-      const randomString = Math.random().toString(36).substring(2, 8)
-      setPublishedUrl(`https://glimpse.io/${randomString}`)
+       // No action needed here now
     }
   }, [currentPage])
 
-  // WebSocket effect for job status
   useEffect(() => {
     if (currentPage === PageState.Loading && jobId) {
       const wsUrl = `ws://127.0.0.1:8000/ws/job-status/${jobId}`
@@ -682,13 +740,12 @@ export default function V0Interface() {
             } else if (message.status === "failed") {
               console.error("Job failed:", message.error || "Unknown error from backend")
               setCurrentPage(PageState.Home)
-              setJobId(null) // Reset job ID on failure
+              setJobId(null)
               ws.close()
             } else if (message.status === "processing" || message.status === "queued") {
               console.log(
                 `Job status: ${message.status}, Progress: ${message.progress ? (message.progress * 100).toFixed(0) + "%" : "N/A"}`,
               )
-              // Optionally update a more detailed loading indicator here
             }
           }
         } catch (e) {
@@ -698,7 +755,7 @@ export default function V0Interface() {
 
       ws.onerror = (error) => {
         console.error("WebSocket error:", error)
-        setCurrentPage(PageState.Home) // Fallback on WebSocket error
+        setCurrentPage(PageState.Home)
         setJobId(null)
       }
 
@@ -706,7 +763,6 @@ export default function V0Interface() {
         console.log("WebSocket connection closed.", event.code, event.reason)
       }
 
-      // Cleanup function to close WebSocket when component unmounts or dependencies change
       return () => {
         if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
           console.log("Closing WebSocket connection due to effect cleanup.")
@@ -721,7 +777,7 @@ export default function V0Interface() {
     if (inputText.trim()) {
       setSubmittedText(inputText)
       setCurrentPage(PageState.Loading)
-      setJobId(null) // Reset job ID before new request
+      setJobId(null)
 
       try {
         const response = await fetch("http://127.0.0.1:8000/generate-demo", {
@@ -762,8 +818,7 @@ export default function V0Interface() {
     setSubmittedText("")
     setCurrentPage(PageState.Home)
     setActiveSlide(0)
-    setPublishedUrl("")
-    setJobId(null) // Reset jobId
+    setJobId(null)
   }
 
   const handlePublish = () => {
@@ -773,9 +828,11 @@ export default function V0Interface() {
   // Conditional rendering for different views
   if (currentPage === PageState.Published) {
     return (
+      // Render the modified PublishedView with integrated slideshow
       <PublishedView
         submittedText={submittedText}
-        publishedUrl={publishedUrl}
+        slides={slides}
+        bgColor={selectedBgColor}
         handleStartNewTask={handleStartNewTask}
       />
     )
@@ -788,11 +845,12 @@ export default function V0Interface() {
         slides={slides}
         activeSlide={activeSlide}
         setActiveSlide={setActiveSlide}
+        selectedBgColor={selectedBgColor}
+        setSelectedBgColor={setSelectedBgColor}
       />
     )
   }
 
-  // Covers PageState.Home and PageState.Loading
   return (
     <div className="min-h-screen bg-white flex">
       <div className={`transition-all duration-300 w-full`}>
@@ -802,7 +860,7 @@ export default function V0Interface() {
             setInputText={setInputText}
             handleSubmit={handleSubmit}
             previousDemos={previousDemos}
-          /> // This implies currentPage === PageState.Loading
+          />
         ) : (
           <LoadingView submittedText={submittedText} loadingText={loadingText} loadingDots={loadingDots} />
         )}
