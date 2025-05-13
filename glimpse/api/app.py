@@ -57,16 +57,23 @@ Click on the New issue button
 Stop
 """
 MOCK_TASK_3 = """
-Go to https://wikipedia.org
-Search for 'FastAPI' using the search input
-Click the search button
-Click the first result link for 'FastAPI'
+Go to https://app.storylane.io
+Click on the Create demo button on the top right
+Then click on the upload screens manually button
+Then click on the upload/Drag and drop
 Stop
 """
 MOCK_TASK_4 = """
-Go to https://google.com
-Type 'python async library' into the search bar
-Click the 'Google Search' button
+Go to http://localhost:3000/
+On the top left corner in the left hand panel, click the team browser use button
+select databricks
+Type 'generate a demo to show users how they can create a new workflow on databricks by ingesting data from salesforce'
+Click on the black submit arrow
+Once the page loads, click on the publish button
+Scroll down and click on the share button
+Stop
+"""
+MOCK_TASK_5 = """
 Stop
 """
 
@@ -174,8 +181,8 @@ MOCK_MODE = os.getenv("MOCK_MODE", "false").lower() == "true"
 @app.post("/set-active-mock-mode")
 async def set_active_mock_mode(request: SetMockModeRequest):
     global ACTIVE_MOCK_MODE
-    if request.mock_mode is not None and not (1 <= request.mock_mode <= 4):
-        raise HTTPException(status_code=400, detail="Invalid mock_mode. Must be between 1 and 4, or null.")
+    if request.mock_mode is not None and not (1 <= request.mock_mode <= 5):
+        raise HTTPException(status_code=400, detail="Invalid mock_mode. Must be between 1 and 5, or null.")
     ACTIVE_MOCK_MODE = request.mock_mode
     return {"message": f"Active mock mode set to: {ACTIVE_MOCK_MODE if ACTIVE_MOCK_MODE is not None else 'None (disabled)'}"}
 
@@ -222,7 +229,11 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
             elif ACTIVE_MOCK_MODE == 4:
                 mode_message = "--- Running in MOCK MODE 4 (API triggered) ---"
                 task_to_execute = MOCK_TASK_4
-                current_root_url = "https://google.com"
+                current_root_url = "http://localhost:3000/" # Corrected based on MOCK_TASK_4 content
+            elif ACTIVE_MOCK_MODE == 5:
+                mode_message = "--- Running in MOCK MODE 5 (API triggered) ---" # Corrected message
+                task_to_execute = MOCK_TASK_5 # Corrected task
+                current_root_url = "http://localhost:3000/" # Set root URL for MOCK_TASK_5
         else:
             # 2. Fallback to environment variable mock modes if API mode is not set
             if os.getenv("MOCK_MODE1", "false").lower() == "true":
@@ -240,7 +251,11 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
             elif os.getenv("MOCK_MODE4", "false").lower() == "true":
                 mode_message = "--- Running in MOCK MODE 4 (ENV var) ---"
                 task_to_execute = MOCK_TASK_4
-                current_root_url = "https://google.com"
+                current_root_url = "http://localhost:3000/" # Corrected based on MOCK_TASK_4 content
+            elif os.getenv("MOCK_MODE5", "false").lower() == "true":
+                mode_message = "--- Running in MOCK MODE 5 (ENV var) ---"
+                task_to_execute = MOCK_TASK_5
+                current_root_url = "http://localhost:3000/"
 
         print(mode_message)
         await execute_agent(task_to_execute, current_root_url, browser_details=browser_details)

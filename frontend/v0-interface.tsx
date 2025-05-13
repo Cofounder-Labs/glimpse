@@ -861,6 +861,7 @@ export default function V0Interface() {
     { id: "github", name: "GitHub for Education", logo: "/github.png", imageCount: 4 },      // Assuming 4 images
     { id: "storylane", name: "Storylane", logo: "/storylane.png", imageCount: 3 },    // Assuming 6 images
     { id: "glimpse", name: "Team Glimpse", logo: "/glimpse.png", imageCount: 3 },      // Assuming 5 images
+    { id: "databricks", name: "Databricks", logo: "/databricks.png", imageCount: 4 },      // Assuming 5 images
   ];
 
   // State for selected team - lifted up
