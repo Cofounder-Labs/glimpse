@@ -37,6 +37,9 @@ active_connections: Dict[str, Set[WebSocket]] = {}
 # Global variable to store the browser instance or connection details
 browser_details = {"remote_debugging_port": 9222} # Store port for now
 
+# Variable to store the active mock mode, settable by an endpoint
+ACTIVE_MOCK_MODE: Optional[int] = None
+
 # Define different mock tasks
 MOCK_TASK_1 = """
 Go to https://browser-use.com
@@ -137,10 +140,12 @@ def launch_chrome_with_debugging():
 async def startup_event():
     launch_chrome_with_debugging()
 
-# Models
 class DemoRequest(BaseModel):
     nl_task: str
     root_url: str
+
+class SetMockModeRequest(BaseModel):
+    mock_mode: Optional[int] # e.g., 1 for MOCK_TASK_1, 2 for MOCK_TASK_2, etc. None to disable.
 
 class DemoStatus(BaseModel):
     job_id: str
@@ -166,6 +171,14 @@ class DemoStep(BaseModel):
 # Mock mode configuration
 MOCK_MODE = os.getenv("MOCK_MODE", "false").lower() == "true"
 
+@app.post("/set-active-mock-mode")
+async def set_active_mock_mode(request: SetMockModeRequest):
+    global ACTIVE_MOCK_MODE
+    if request.mock_mode is not None and not (1 <= request.mock_mode <= 4):
+        raise HTTPException(status_code=400, detail="Invalid mock_mode. Must be between 1 and 4, or null.")
+    ACTIVE_MOCK_MODE = request.mock_mode
+    return {"message": f"Active mock mode set to: {ACTIVE_MOCK_MODE if ACTIVE_MOCK_MODE is not None else 'None (disabled)'}"}
+
 async def notify_job_completion(job_id: str, status: str):
     """Notify connected WebSocket clients about job completion."""
     if job_id in active_connections:
@@ -182,44 +195,55 @@ async def notify_job_completion(job_id: str, status: str):
 
 async def process_demo_task(job_id: str, nl_task: str, root_url: str):
     """Background task to process the demo generation"""
+    global ACTIVE_MOCK_MODE # Ensure we are using the global variable
     final_status = "failed" # Default to failed
     try:
         job_store[job_id]["status"] = "processing"
         job_store[job_id]["progress"] = 0.1 # Initial progress
 
-        # Check for specific MOCK_MODEn=true environment variables
-        task_to_execute = nl_task # Default to the user's task
-        original_root_url = root_url # Keep original for non-mock case
+        task_to_execute = nl_task
+        current_root_url = root_url
+        mode_message = "--- Running in standard mode (user-provided task) ---"
 
-        mock_mode_active = None
-        if os.getenv("MOCK_MODE1", "false").lower() == "true":
-            mock_mode_active = 1
-            print("--- Running in MOCK MODE 1 ---")
-            task_to_execute = MOCK_TASK_1
-            root_url = "https://browser-use.com" 
-        elif os.getenv("MOCK_MODE2", "false").lower() == "true":
-            mock_mode_active = 2
-            print("--- Running in MOCK MODE 2 ---")
-            task_to_execute = MOCK_TASK_2
-            root_url = "https://browser-use.com" # Assuming same root for MOCK_TASK_2
-        elif os.getenv("MOCK_MODE3", "false").lower() == "true":
-            mock_mode_active = 3
-            print("--- Running in MOCK MODE 3 ---")
-            task_to_execute = MOCK_TASK_3
-            root_url = "https://wikipedia.org"
-        elif os.getenv("MOCK_MODE4", "false").lower() == "true":
-            mock_mode_active = 4
-            print("--- Running in MOCK MODE 4 ---")
-            task_to_execute = MOCK_TASK_4
-            root_url = "https://google.com"
-        
-        if mock_mode_active:
-            # Execute the selected mock task
-            await execute_agent(task_to_execute, root_url, browser_details=browser_details)
+        # 1. Check API-set active mock mode first
+        if ACTIVE_MOCK_MODE is not None:
+            if ACTIVE_MOCK_MODE == 1:
+                mode_message = "--- Running in MOCK MODE 1 (API triggered) ---"
+                task_to_execute = MOCK_TASK_1
+                current_root_url = "https://browser-use.com"
+            elif ACTIVE_MOCK_MODE == 2:
+                mode_message = "--- Running in MOCK MODE 2 (API triggered) ---"
+                task_to_execute = MOCK_TASK_2
+                current_root_url = "https://browser-use.com" # Assuming same root for MOCK_TASK_2
+            elif ACTIVE_MOCK_MODE == 3:
+                mode_message = "--- Running in MOCK MODE 3 (API triggered) ---"
+                task_to_execute = MOCK_TASK_3
+                current_root_url = "https://wikipedia.org"
+            elif ACTIVE_MOCK_MODE == 4:
+                mode_message = "--- Running in MOCK MODE 4 (API triggered) ---"
+                task_to_execute = MOCK_TASK_4
+                current_root_url = "https://google.com"
         else:
-            # No specific MOCK_MODEn=true found, execute original task
-            print("--- Running in standard mode (no MOCK_MODEn=true detected) ---")
-            await execute_agent(nl_task, original_root_url, browser_details=browser_details)
+            # 2. Fallback to environment variable mock modes if API mode is not set
+            if os.getenv("MOCK_MODE1", "false").lower() == "true":
+                mode_message = "--- Running in MOCK MODE 1 (ENV var) ---"
+                task_to_execute = MOCK_TASK_1
+                current_root_url = "https://browser-use.com"
+            elif os.getenv("MOCK_MODE2", "false").lower() == "true":
+                mode_message = "--- Running in MOCK MODE 2 (ENV var) ---"
+                task_to_execute = MOCK_TASK_2
+                current_root_url = "https://browser-use.com" # Assuming same root
+            elif os.getenv("MOCK_MODE3", "false").lower() == "true":
+                mode_message = "--- Running in MOCK MODE 3 (ENV var) ---"
+                task_to_execute = MOCK_TASK_3
+                current_root_url = "https://wikipedia.org"
+            elif os.getenv("MOCK_MODE4", "false").lower() == "true":
+                mode_message = "--- Running in MOCK MODE 4 (ENV var) ---"
+                task_to_execute = MOCK_TASK_4
+                current_root_url = "https://google.com"
+
+        print(mode_message)
+        await execute_agent(task_to_execute, current_root_url, browser_details=browser_details)
 
         final_status = "completed"
         job_store[job_id].update({

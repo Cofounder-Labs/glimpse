@@ -637,9 +637,52 @@ const Sidepanel = ({
   ];
 
   // Handler for selecting a team - Calls the passed function
-  const handleTeamSelect = (team: Team) => {
-    setSelectedTeam(team); // Call the function passed from parent
-    setIsDropdownOpen(false);
+  const handleTeamSelect = async (team: Team) => { // Made async
+    setSelectedTeam(team); // Call the function passed from parent to update UI state
+    setIsDropdownOpen(false); // Close the dropdown
+
+    // Determine the mock_mode ID based on the team's index in the teams array
+    // Assumes the order in the `teams` array corresponds to mock modes 1, 2, 3, 4
+    const teamIndex = teams.findIndex(t => t.id === team.id);
+    let mockModeToSet: number | null = null;
+
+    if (teamIndex !== -1) {
+      mockModeToSet = teamIndex + 1; // e.g., teams[0] -> mock_mode 1, teams[1] -> mock_mode 2
+    } else {
+      console.error("Selected team not found in the teams list. Cannot set mock mode via API.");
+      return; // Do not proceed if the team isn't found (should not happen with current setup)
+    }
+
+    if (mockModeToSet === null) {
+        console.warn("Could not determine a valid mock_mode to set. API call will be skipped.");
+        return;
+    }
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/set-active-mock-mode", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ mock_mode: mockModeToSet }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(
+          `API Error setting mock mode to ${mockModeToSet}:`,
+          response.status,
+          errorBody
+        );
+        // Optionally, handle UI feedback here
+      } else {
+        const responseData = await response.json();
+        console.log(`Mock mode set to ${mockModeToSet} successfully:`, responseData);
+      }
+    } catch (error) {
+      console.error(`Network or other error setting mock mode to ${mockModeToSet}:`, error);
+      // Optionally, handle UI feedback here
+    }
   };
 
   return (
