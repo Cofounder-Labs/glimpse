@@ -37,6 +37,36 @@ active_connections: Dict[str, Set[WebSocket]] = {}
 # Global variable to store the browser instance or connection details
 browser_details = {"remote_debugging_port": 9222} # Store port for now
 
+# Define different mock tasks
+MOCK_TASK_1 = """
+Go to https://browser-use.com
+Click on docs link https://docs.browser-use.com/
+Click on the Cloud API tab
+Under API v1.0, click on the 'Get Task Status' button
+Click on the "Try it" button
+Stop
+"""
+MOCK_TASK_2 = """
+Go to https://github.com/
+Click on the glimpse repository on the left hand panel
+Click on Issues tab
+Click on the New issue button
+Stop
+"""
+MOCK_TASK_3 = """
+Go to https://wikipedia.org
+Search for 'FastAPI' using the search input
+Click the search button
+Click the first result link for 'FastAPI'
+Stop
+"""
+MOCK_TASK_4 = """
+Go to https://google.com
+Type 'python async library' into the search bar
+Click the 'Google Search' button
+Stop
+"""
+
 def launch_chrome_with_debugging():
     """Launch Chrome with remote debugging enabled"""
     chrome_path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' # This might need to be configurable
@@ -157,30 +187,50 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
         job_store[job_id]["status"] = "processing"
         job_store[job_id]["progress"] = 0.1 # Initial progress
 
-        # Pass browser details to execute_agent
-        # The agent will need to be modified to use this.
-        if MOCK_MODE:
-            mock_nl_task = """
-            Go to https://browser-use.com
-            Click on docs link https://docs.browser-use.com/
-            Click on the Cloud API tab
-            Under API v1.0, click on the 'Get Task Status' button
-            Click on the "Try it" button
-            Stop
-            """
-            await execute_agent(mock_nl_task, root_url, browser_details=browser_details)
-        else:
-            await execute_agent(nl_task, root_url, browser_details=browser_details)
+        # Check for specific MOCK_MODEn=true environment variables
+        task_to_execute = nl_task # Default to the user's task
+        original_root_url = root_url # Keep original for non-mock case
+
+        mock_mode_active = None
+        if os.getenv("MOCK_MODE1", "false").lower() == "true":
+            mock_mode_active = 1
+            print("--- Running in MOCK MODE 1 ---")
+            task_to_execute = MOCK_TASK_1
+            root_url = "https://browser-use.com" 
+        elif os.getenv("MOCK_MODE2", "false").lower() == "true":
+            mock_mode_active = 2
+            print("--- Running in MOCK MODE 2 ---")
+            task_to_execute = MOCK_TASK_2
+            root_url = "https://browser-use.com" # Assuming same root for MOCK_TASK_2
+        elif os.getenv("MOCK_MODE3", "false").lower() == "true":
+            mock_mode_active = 3
+            print("--- Running in MOCK MODE 3 ---")
+            task_to_execute = MOCK_TASK_3
+            root_url = "https://wikipedia.org"
+        elif os.getenv("MOCK_MODE4", "false").lower() == "true":
+            mock_mode_active = 4
+            print("--- Running in MOCK MODE 4 ---")
+            task_to_execute = MOCK_TASK_4
+            root_url = "https://google.com"
         
+        if mock_mode_active:
+            # Execute the selected mock task
+            await execute_agent(task_to_execute, root_url, browser_details=browser_details)
+        else:
+            # No specific MOCK_MODEn=true found, execute original task
+            print("--- Running in standard mode (no MOCK_MODEn=true detected) ---")
+            await execute_agent(nl_task, original_root_url, browser_details=browser_details)
+
         final_status = "completed"
         job_store[job_id].update({
             "status": final_status,
             "progress": 1.0,
             "completed_at": datetime.now()
         })
+
     except Exception as e:
         job_store[job_id].update({
-            "status": final_status, # remains "failed"
+            "status": "failed", # Explicitly set failed on exception
             "progress": 0.0,
             "error": str(e),
             "completed_at": datetime.now()
