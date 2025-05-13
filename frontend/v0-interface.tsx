@@ -296,19 +296,22 @@ const SlidesSidebar = ({
   </div>
 )
 
-// SlideEditor component
+// SlideEditor component - Accept bgColor prop
 const SlideEditor = ({ slide, bgColor }: { slide: { id: number; title: string; content: string } | null; bgColor: string }) => (
+  // Outer container: provides background, centers content, allows scrolling if needed
   <div className={`flex-1 ${bgColor} flex items-center justify-center p-4 overflow-auto`}>
-    <div className="bg-white rounded-lg shadow-lg h-[85vh] aspect-[16/16] flex items-center justify-center relative overflow-hidden pt-16">
+    {/* Inner container (image stage): Added aspect-video for consistent shape */}
+    <div className="bg-white rounded-lg shadow-lg w-full max-w-5xl max-h-[85vh] aspect-video flex items-center justify-center relative p-4">
       {slide ? (
         <Image
           src={slide.content}
           alt={slide.title}
-          layout="fill"
-          objectFit="cover"
-          className="object-cover w-full h-full p-4"
+          layout="fill" // Fills the parent (the p-4 padded bg-white div)
+          objectFit="contain" // Maintains aspect ratio, fits within bounds, prevents cropping
+          // No className needed here as layout="fill" handles positioning and size relative to parent
         />
       ) : (
+        // Fallback for when no slide is selected
         <div className="text-center p-8">
           <h2 className="text-xl text-gray-400 mb-6">Select a slide</h2>
         </div>
