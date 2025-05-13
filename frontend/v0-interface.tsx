@@ -606,46 +606,36 @@ const PreviousDemosSection = ({ previousDemos }: { previousDemos: any[] }) => (
   </div>
 )
 
-// NEW: Sidepanel component
-const Sidepanel = () => {
-  // Team data
-  const teams = [
-    { name: "Team Browser Use", logo: "/browser-use.png" },
-    { name: "GitHub for Education", logo: "/github.png" },
-    { name: "Storylane", logo: "/storylane.png" },
-    { name: "Team Glimpse", logo: "/glimpse.png" },
-  ];
+// Define type for team object outside components if used in multiple places
+type Team = {
+  id: string; // Added identifier
+  name: string;
+  logo: string;
+  imageCount: number; // Added image count
+};
 
-  // State for dropdown
-  const [selectedTeam, setSelectedTeam] = useState(teams[0]); // Default to first team
+// NEW: Sidepanel component - Now receives state and handler via props
+const Sidepanel = ({
+  selectedTeam,
+  setSelectedTeam, // Use the passed handler
+  teams // Use passed teams data
+}: {
+  selectedTeam: Team;
+  setSelectedTeam: (team: Team) => void;
+  teams: Team[];
+}) => {
+  // State for dropdown visibility is kept local
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const recentItems = [
-    "Screenshot clone request",
-    "Chat UI with Vibration",
-    "Shadcn dashboard",
-    "Procuro landing page desi...",
-    "Landing page redesign",
-    "Clone Screenshot",
-    "Procuro landing page",
-    "Fork of Agentified landing ...",
-    "Motion floppy disk animati...",
-    "Agentified landing page",
-    "Space Theme Landing Pag",
-    "The Orb",
-    "3D Model Generator, Powe...",
-    "Agentified.fyi landing page"
+    "API request feature",
+    "New Documentation",
+    "New dashboard"
   ];
 
-  // Define type for team object
-  type Team = {
-    name: string;
-    logo: string;
-  };
-
-  // Handler for selecting a team - Add type for team parameter
+  // Handler for selecting a team - Calls the passed function
   const handleTeamSelect = (team: Team) => {
-    setSelectedTeam(team);
+    setSelectedTeam(team); // Call the function passed from parent
     setIsDropdownOpen(false);
   };
 
@@ -668,14 +658,14 @@ const Sidepanel = () => {
           <span className="font-semibold text-lg flex-grow truncate">{selectedTeam.name}</span>
           <ChevronDown size={16} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
         </button>
-
+ 
         {/* Dropdown Menu */}
         {isDropdownOpen && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1">
             {teams.map((team) => (
               <button
                 key={team.name}
-                onClick={() => handleTeamSelect(team)}
+                onClick={() => handleTeamSelect(team)} // Use internal handler which calls prop
                 className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 w-full text-left text-sm"
               >
                 <Image
@@ -691,11 +681,11 @@ const Sidepanel = () => {
           </div>
         )}
       </div>
-
+ 
       <button className="w-full bg-white border border-gray-300 rounded-lg py-2.5 text-gray-700 hover:bg-gray-100 transition-colors">
         New Chat
       </button>
-
+ 
       {/* Navigation Links */}
       <nav className="space-y-1.5">
         <a href="#" className="flex items-center gap-3 px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
@@ -706,9 +696,9 @@ const Sidepanel = () => {
           <Grid size={18} />
           <span>Projects</span>
         </a>
-      
+  
       </nav>
-
+ 
       {/* Divider */}
       <div className="pt-2">
         <a href="#" className="flex items-center justify-between px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
@@ -726,7 +716,7 @@ const Sidepanel = () => {
           <ChevronRight size={16} />
         </a>
       </div>
-
+ 
       {/* Recent Items Section */}
       <div className="pt-2 flex-grow overflow-y-auto space-y-1 pr-1">
         <div className="flex items-center justify-between px-2 py-1.5 text-gray-600">
@@ -739,26 +729,33 @@ const Sidepanel = () => {
           </a>
         ))}
       </div>
+ 
 
-    </div>
+   </div>
   );
 };
 
-// HomePage component - Modified to include Sidepanel
+// HomePage component - Pass state and handler to Sidepanel
 const HomePage = ({
   inputText,
   setInputText,
   handleSubmit,
   previousDemos,
+  selectedTeam, // Receive state
+  setSelectedTeam, // Receive handler
+  teams // Receive team data
 }: {
   inputText: string
   setInputText: (text: string) => void
   handleSubmit: (e: React.FormEvent) => void
   previousDemos: any[]
+  selectedTeam: Team;
+  setSelectedTeam: (team: Team) => void;
+  teams: Team[];
 }) => (
-  // Use flex to position Sidepanel and main content
   <div className="flex h-screen bg-white">
-    <Sidepanel />
+    {/* Pass props to Sidepanel */}
+    <Sidepanel selectedTeam={selectedTeam} setSelectedTeam={setSelectedTeam} teams={teams} />
     <div className="flex-1 flex flex-col items-center overflow-y-auto">
       <div className="container mx-auto px-4 py-16 flex flex-col items-center w-full">
         <h1 className="text-4xl font-bold text-center mb-8">What are we demoing today?</h1>
@@ -812,18 +809,32 @@ export default function V0Interface() {
   const [jobId, setJobId] = useState<string | null>(null)
   const [selectedBgColor, setSelectedBgColor] = useState("bg-gradient-to-b from-purple-600 to-purple-200")
 
-  // Generate slides based on images in the public folder
-  const imageSlides = [
-    { id: 0, title: "Slide 1", content: "/1.png" },
-    { id: 1, title: "Slide 2", content: "/2.png" },
-    { id: 2, title: "Slide 3", content: "/3.png" },
-    { id: 3, title: "Slide 4", content: "/4.png" },
-    { id: 4, title: "Slide 5", content: "/5.png" },
-  ]
+  // Define teams data here with imageCount
+  const teams: Team[] = [
+    { id: "browser-use", name: "Team Browser Use", logo: "/browser-use.png", imageCount: 5 }, // Assuming 5 images
+    { id: "github", name: "GitHub for Education", logo: "/github.png", imageCount: 4 },      // Assuming 4 images
+    { id: "storylane", name: "Storylane", logo: "/storylane.png", imageCount: 3 },    // Assuming 6 images
+    { id: "glimpse", name: "Team Glimpse", logo: "/glimpse.png", imageCount: 3 },      // Assuming 5 images
+  ];
 
-  const slides = imageSlides;
+  // State for selected team - lifted up
+  const [selectedTeam, setSelectedTeam] = useState<Team>(teams[0]);
 
-  // Previous demos data
+  // Dynamically generate slides based on selectedTeam.imageCount
+  const slides = Array.from({ length: selectedTeam.imageCount }, (_, i) => ({
+    id: i,
+    title: `${selectedTeam.name} - Slide ${i + 1}`,
+    content: `/${selectedTeam.id}/${i + 1}.png`, // Dynamic path
+  }));
+
+  // Reset activeSlide if it becomes out of bounds when team changes
+  useEffect(() => {
+    if (activeSlide >= selectedTeam.imageCount) {
+      setActiveSlide(0);
+    }
+  }, [selectedTeam, activeSlide]);
+
+  // Previous demos data (remains static for now)
   const previousDemos = [
     {
       title: "E-commerce Dashboard",
@@ -950,7 +961,7 @@ export default function V0Interface() {
           },
           body: JSON.stringify({
             nl_task: inputText,
-            root_url: "google.com",
+            root_url: "google.com", // Placeholder, might need dynamic value?
           }),
         })
 
@@ -982,6 +993,8 @@ export default function V0Interface() {
     setCurrentPage(PageState.Home)
     setActiveSlide(0)
     setJobId(null)
+    // Reset selected team? Maybe not necessary depending on desired UX
+    // setSelectedTeam(teams[0]); 
   }
 
   const handlePublish = () => {
@@ -991,10 +1004,9 @@ export default function V0Interface() {
   // Conditional rendering for different views
   if (currentPage === PageState.Published) {
     return (
-      // Render the modified PublishedView with integrated slideshow
       <PublishedView
-        submittedText={submittedText}
-        slides={slides}
+        submittedText={submittedText} // You might want to pass selectedTeam.name here or adjust
+        slides={slides} // Pass dynamically generated slides
         bgColor={selectedBgColor}
         handleStartNewTask={handleStartNewTask}
       />
@@ -1005,7 +1017,7 @@ export default function V0Interface() {
     return (
       <EditorView
         handlePublish={handlePublish}
-        slides={slides}
+        slides={slides} // Pass dynamically generated slides
         activeSlide={activeSlide}
         setActiveSlide={setActiveSlide}
         selectedBgColor={selectedBgColor}
@@ -1014,6 +1026,7 @@ export default function V0Interface() {
     )
   }
 
+  // Covers PageState.Home and PageState.Loading
   return (
     <div className="min-h-screen bg-white flex">
       <div className={`transition-all duration-300 w-full`}>
@@ -1023,6 +1036,9 @@ export default function V0Interface() {
             setInputText={setInputText}
             handleSubmit={handleSubmit}
             previousDemos={previousDemos}
+            selectedTeam={selectedTeam} // Pass state down
+            setSelectedTeam={setSelectedTeam} // Pass handler down
+            teams={teams} // Pass team data down
           />
         ) : (
           <LoadingView submittedText={submittedText} loadingText={loadingText} loadingDots={loadingDots} />
