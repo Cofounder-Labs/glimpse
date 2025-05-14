@@ -641,6 +641,12 @@ const Sidepanel = ({
     setSelectedTeam(team); // Call the function passed from parent to update UI state
     setIsDropdownOpen(false); // Close the dropdown
 
+    // If the selected team is Databricks, skip sending the mock mode to the backend.
+    if (team.id === "databricks") {
+      console.log("Databricks team selected. Skipping mock mode API call.");
+      return;
+    }
+
     // Determine the mock_mode ID based on the team's index in the teams array
     // Assumes the order in the `teams` array corresponds to mock modes 1, 2, 3, 4
     const teamIndex = teams.findIndex(t => t.id === team.id);
@@ -994,12 +1000,23 @@ export default function V0Interface() {
   }, [currentPage, jobId, setCurrentPage, setJobId])
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (inputText.trim()) {
-      setSubmittedText(inputText)
-      setCurrentPage(PageState.Loading)
-      setJobId(null)
+      setSubmittedText(inputText);
+      setCurrentPage(PageState.Loading);
+      setJobId(null); // Reset job ID for all cases initially
 
+      // Special handling for Databricks team
+      if (selectedTeam.id === "databricks") {
+        console.log("Databricks team selected. Bypassing backend demo generation.");
+        setTimeout(() => {
+          console.log("5-second delay complete. Transitioning to Editor for Databricks.");
+          setCurrentPage(PageState.Editor);
+        }, 5000); // 5-second delay
+        return; // Important: return to prevent the normal API call path
+      }
+
+      // Regular path for other teams: Call the backend to generate the demo
       try {
         const response = await fetch("http://127.0.0.1:8000/generate-demo", {
           method: "POST",
