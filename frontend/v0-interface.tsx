@@ -859,10 +859,12 @@ export default function V0Interface() {
   const [activeSlide, setActiveSlide] = useState(0)
   const [jobId, setJobId] = useState<string | null>(null)
   const [selectedBgColor, setSelectedBgColor] = useState("bg-gradient-to-b from-purple-600 to-purple-200")
+  const [artifactPath, setArtifactPath] = useState<string | null>(null)
+  const [screenshotsList, setScreenshotsList] = useState<string[]>([])
 
   // Define teams data here with imageCount
   const teams: Team[] = [
-    { id: "free-run", name: "Free Run", logo: "/free-run.png", imageCount: 3 }, // Added Free Run option
+    { id: "free-run", name: "Free Run", logo: "/free-run.png", imageCount: 0 },
     { id: "browser-use", name: "Team Browser Use", logo: "/browser-use.png", imageCount: 5 },
     { id: "github", name: "GitHub for Education", logo: "/github.png", imageCount: 4 },
     { id: "storylane", name: "Storylane", logo: "/storylane.png", imageCount: 3 },
@@ -922,14 +924,24 @@ export default function V0Interface() {
     setInitialMockMode();
   }, []); // Empty dependency array means this runs once on mount
 
-  // Dynamically generate slides based on selectedTeam.imageCount
-  const slides = Array.from({ length: selectedTeam.imageCount }, (_, i) => ({
-    id: i,
-    title: `${selectedTeam.name} - Slide ${i + 1}`,
-    content: `/${selectedTeam.id}/${i + 1}.png`, // Dynamic path
-  }));
+  // Dynamically generate slides
+  const slides = (() => {
+    if (selectedTeam.id === "free-run" && artifactPath && screenshotsList.length > 0) {
+      return screenshotsList.map((screenshotName, i) => ({
+        id: i,
+        title: `Free Run - Step ${i + 1}`,
+        content: `/${artifactPath}/${screenshotName}`, // Path to saved screenshot
+      }));
+    }
+    // Fallback to existing logic for other teams or if artifacts aren't ready for Free Run
+    return Array.from({ length: selectedTeam.imageCount }, (_, i) => ({
+      id: i,
+      title: `${selectedTeam.name} - Slide ${i + 1}`,
+      content: `/${selectedTeam.id}/${i + 1}.png`, // Dynamic path based on team
+    }));
+  })();
 
-  // Reset activeSlide if it becomes out of bounds when team changes
+  // Reset activeSlide and artifacts if it becomes out of bounds when team changes
   useEffect(() => {
     if (activeSlide >= selectedTeam.imageCount) {
       setActiveSlide(0);
@@ -1010,9 +1022,41 @@ export default function V0Interface() {
 
           if (message.job_id === jobId) {
             if (message.status === "completed") {
-              console.log("Job completed. Transitioning to Editor.")
-              setCurrentPage(PageState.Editor)
-              ws.close()
+              if (selectedTeam.id === "free-run") {
+                console.log("Job completed for Free Run. Fetching artifact details...");
+                const fetchJobDetails = async () => {
+                  try {
+                    const res = await fetch(`http://127.0.0.1:8000/demo-status/${jobId}`);
+                    if (res.ok) {
+                      const jobDetails = await res.json();
+                      console.log("Fetched jobDetails for Free Run (raw):", JSON.stringify(jobDetails, null, 2));
+                      if (jobDetails.artifact_path && jobDetails.screenshots && jobDetails.screenshots.length > 0) {
+                        setArtifactPath(jobDetails.artifact_path);
+                        setScreenshotsList(jobDetails.screenshots);
+                        console.log("Free Run artifacts loaded via fetchJobDetails:", jobDetails.artifact_path, jobDetails.screenshots);
+                        // setCurrentPage(PageState.Editor) will be handled by the new useEffect
+                      } else {
+                        console.error("Free Run artifacts condition failed. artifact_path:", jobDetails.artifact_path, "screenshots:", jobDetails.screenshots, "screenshots.length:", jobDetails.screenshots ? jobDetails.screenshots.length : 'undefined');
+                        setCurrentPage(PageState.Home); // Go home if artifacts are missing
+                      }
+                    } else {
+                      console.error("Failed to fetch job details for Free Run artifacts, status:", res.status);
+                      setCurrentPage(PageState.Home); // Go home on fetch error
+                    }
+                  } catch (fetchError) {
+                    console.error("Error fetching final job details for Free Run artifacts:", fetchError);
+                    setCurrentPage(PageState.Home); // Go home on network error
+                  } finally {
+                    ws.close(); // Close WebSocket after processing
+                  }
+                };
+                fetchJobDetails();
+              } else {
+                // For non-Free Run modes, transition directly
+                console.log("Job completed for non-Free Run. Transitioning to Editor.");
+                setCurrentPage(PageState.Editor);
+                ws.close();
+              }
             } else if (message.status === "failed") {
               console.error("Job failed:", message.error || "Unknown error from backend")
               setCurrentPage(PageState.Home)
@@ -1048,12 +1092,28 @@ export default function V0Interface() {
     }
   }, [currentPage, jobId, setCurrentPage, setJobId])
 
+  // useEffect to transition to Editor for Free Run once artifacts are loaded
+  useEffect(() => {
+    console.log("useEffect (Free Run Transition Check) triggered. currentPage:", PageState[currentPage], "selectedTeam:", selectedTeam.id, "artifactPath:", artifactPath, "screenshotsList.length:", screenshotsList.length);
+
+    if (currentPage === PageState.Loading &&
+        selectedTeam.id === "free-run" &&
+        artifactPath && 
+        screenshotsList.length > 0
+    ) {
+      console.log("Free Run artifacts ready, conditions met! Transitioning to Editor view.", artifactPath, screenshotsList);
+      setCurrentPage(PageState.Editor);
+    }
+  }, [currentPage, selectedTeam, artifactPath, screenshotsList, setCurrentPage]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (inputText.trim()) {
       setSubmittedText(inputText);
       setCurrentPage(PageState.Loading);
-      setJobId(null); // Reset job ID for all cases initially
+      setJobId(null); 
+      setArtifactPath(null); // Reset artifacts
+      setScreenshotsList([]); // Reset artifacts
 
       // Special handling for Databricks team
       if (selectedTeam.id === "databricks") { // Removed "free-run" from this condition
@@ -1074,7 +1134,7 @@ export default function V0Interface() {
           },
           body: JSON.stringify({
             nl_task: inputText,
-            root_url: selectedTeam.id === "free-run" ? "" : "google.com", // Set root_url to "" for Free Run
+            root_url: selectedTeam.id === "free-run" ? "" : "google.com", 
           }),
         })
 
@@ -1089,6 +1149,8 @@ export default function V0Interface() {
         console.log("Job created successfully:", responseData)
         if (responseData.job_id) {
           setJobId(responseData.job_id)
+          // For Free Run, artifacts will be fetched via WebSocket onmessage or after a delay
+          // No special timeout here anymore, rely on WebSocket for transition for all.
         } else {
           console.error("API Error: No job_id received from /generate-demo")
           setCurrentPage(PageState.Home)
@@ -1106,6 +1168,8 @@ export default function V0Interface() {
     setCurrentPage(PageState.Home)
     setActiveSlide(0)
     setJobId(null)
+    setArtifactPath(null); // Reset artifacts
+    setScreenshotsList([]); // Reset artifacts
     // Reset selected team? Maybe not necessary depending on desired UX
     // setSelectedTeam(teams[0]); 
   }

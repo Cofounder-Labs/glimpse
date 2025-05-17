@@ -11,6 +11,12 @@ from datetime import datetime
 import subprocess
 import time
 import requests # Added for launch_chrome_with_debugging
+import logging
+
+# Set up logging if not already configured at a higher level
+logger = logging.getLogger(__name__)
+if not logger.hasHandlers(): # Avoid adding multiple handlers if already configured
+    logging.basicConfig(level=logging.INFO) # Or logging.DEBUG for more verbosity
 
 app = FastAPI(title="Glimpse API", description="API for generating and managing interactive demos")
 
@@ -162,6 +168,8 @@ class DemoStatus(BaseModel):
     created_at: datetime
     completed_at: Optional[datetime] = None
     error: Optional[str] = None
+    artifact_path: Optional[str] = None  # Add new field for artifact path
+    screenshots: Optional[List[str]] = None # Add new field for screenshots list
 
 class BoundingBox(BaseModel):
     x: float      # x-coordinate as percentage of page width (0.0 to 1.0)
@@ -292,14 +300,24 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
                 current_root_url = "http://localhost:3000/"
 
         print(mode_message)
-        await execute_agent(task_to_execute, current_root_url, browser_details=browser_details)
+        agent_result = await execute_agent(task_to_execute, current_root_url, browser_details=browser_details)
 
         final_status = "completed"
-        job_store[job_id].update({
+        job_update_payload = {
             "status": final_status,
             "progress": 1.0,
             "completed_at": datetime.now()
-        })
+        }
+
+        if ACTIVE_MOCK_MODE == 0: # Free Run mode
+            if agent_result.get("artifact_path") and agent_result.get("screenshots"):
+                job_update_payload["artifact_path"] = agent_result["artifact_path"]
+                job_update_payload["screenshots"] = agent_result["screenshots"]
+                logger.info(f"Free Run artifacts for job {job_id}: {agent_result['artifact_path']}, {len(agent_result['screenshots'])} screenshots")
+            else:
+                logger.warning(f"Free Run mode for job {job_id} completed but no artifact path or screenshots found in agent result.")
+
+        job_store[job_id].update(job_update_payload)
 
     except Exception as e:
         job_store[job_id].update({

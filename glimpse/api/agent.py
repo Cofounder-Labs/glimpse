@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 import os
 import logging
 from screeninfo import get_monitors
+import base64
+from pathlib import Path
+from datetime import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -16,7 +19,7 @@ load_dotenv()
 async def execute_agent(nl_task: str, root_url: str, browser_details: dict | None = None) -> dict:
     """
     Execute the browser agent with the given task and URL.
-    Returns a dictionary with job status and steps.
+    Saves screenshots for 'Free Run' mode and returns their paths.
     """
     try:
         logger.debug(f"Starting task: {nl_task} at {root_url}")
@@ -94,11 +97,60 @@ async def execute_agent(nl_task: str, root_url: str, browser_details: dict | Non
         )
         
         # Run the agent
-        result = await agent.run()
+        history_result = await agent.run() # Capture the full history object
+
+        # --- Screenshot Saving Logic for Free Run ---
+        # This part is relevant if this agent execution is for a "Free Run" like mode.
+        # The decision to save screenshots might be better placed in app.py based on ACTIVE_MOCK_MODE,
+        # but for now, let's assume execute_agent prepares these if called in a context that needs them.
+
+        screenshots_saved = []
+        run_artifact_folder_name = ""
+
+        # Define the base path for artifacts relative to the frontend's public directory
+        # This assumes api and frontend are sibling directories or this path is correctly resolved.
+        # A more robust solution might involve passing the frontend_public_dir_path as a config.
+        # For now, let's assume a relative path from the `glimpse` workspace root.
+        base_artifacts_path = Path("frontend/public/run_artifacts")
         
-        # Return the results
+        if hasattr(history_result, 'history') and isinstance(history_result.history, list):
+            if history_result.history: # Only create folder if there's history
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+                run_artifact_folder_name = f"run_{timestamp}"
+                specific_run_path = base_artifacts_path / run_artifact_folder_name
+                specific_run_path.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Created artifact directory: {specific_run_path}")
+
+                for i, item in enumerate(history_result.history):
+                    if hasattr(item, 'state') and hasattr(item.state, 'screenshot') and item.state.screenshot:
+                        try:
+                            screenshot_data = item.state.screenshot
+                            if isinstance(screenshot_data, str): # Check if it's base64 string
+                                # Ensure correct base64 padding
+                                missing_padding = len(screenshot_data) % 4
+                                if missing_padding:
+                                    screenshot_data += '=' * (4 - missing_padding)
+                                
+                                image_data = base64.b64decode(screenshot_data)
+                                screenshot_filename = f"{i+1:02d}.png"
+                                screenshot_file_path = specific_run_path / screenshot_filename
+                                
+                                with open(screenshot_file_path, "wb") as f:
+                                    f.write(image_data)
+                                screenshots_saved.append(screenshot_filename)
+                                logger.debug(f"Saved screenshot: {screenshot_file_path}")
+                            else:
+                                logger.warning(f"Screenshot for item {i} is not a string, skipping.")
+                        except base64.binascii.Error as b64_error:
+                            logger.error(f"Base64 decoding error for screenshot {i}: {b64_error}. Data: {screenshot_data[:100]}...") # Log snippet of data
+                        except Exception as e:
+                            logger.error(f"Error saving screenshot {i}: {e}")
+        
+        # Return the results including artifact info
         return {
-            "steps": result  # You may need to transform this based on browser-use's output format
+            "steps": history_result, # Original full result
+            "artifact_path": f"run_artifacts/{run_artifact_folder_name}" if run_artifact_folder_name else "",
+            "screenshots": screenshots_saved
         }
         
     except Exception as e:

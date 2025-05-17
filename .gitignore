@@ -172,3 +172,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Glimpse run artifacts
+frontend/public/run_artifacts/
