@@ -23,7 +23,7 @@ import {
   Users2,
   Star,
 } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 
 // LoadingIndicator component
 const LoadingIndicator = ({ loadingText, loadingDots }: { loadingText: string; loadingDots: string }) => (
@@ -924,29 +924,39 @@ export default function V0Interface() {
     setInitialMockMode();
   }, []); // Empty dependency array means this runs once on mount
 
-  // Dynamically generate slides
-  const slides = (() => {
+  // Dynamically generate slides using useMemo for stability
+  const slides = useMemo(() => {
+    console.log("useMemo recalculating slides. Team:", selectedTeam.id, "ArtifactPath:", artifactPath, "ScreenshotsList Length:", screenshotsList.length);
     if (selectedTeam.id === "free-run" && artifactPath && screenshotsList.length > 0) {
       return screenshotsList.map((screenshotName, i) => ({
         id: i,
         title: `Free Run - Step ${i + 1}`,
-        content: `/${artifactPath}/${screenshotName}`, // Path to saved screenshot
+        content: `/${artifactPath}/${screenshotName}`,
       }));
     }
-    // Fallback to existing logic for other teams or if artifacts aren't ready for Free Run
+    // Fallback for other teams or if artifacts aren't ready for Free Run
     return Array.from({ length: selectedTeam.imageCount }, (_, i) => ({
       id: i,
       title: `${selectedTeam.name} - Slide ${i + 1}`,
-      content: `/${selectedTeam.id}/${i + 1}.png`, // Dynamic path based on team
+      content: `/${selectedTeam.id}/${i + 1}.png`,
     }));
-  })();
+  }, [selectedTeam, artifactPath, screenshotsList]);
 
-  // Reset activeSlide and artifacts if it becomes out of bounds when team changes
+  // useEffect to sync activeSlide with slides array boundaries
   useEffect(() => {
-    if (activeSlide >= selectedTeam.imageCount) {
-      setActiveSlide(0);
+    console.log(`useEffect (ActiveSlide Boundary Check) triggered. activeSlide: ${activeSlide}, slides.length: ${slides.length}`);
+    if (slides.length > 0) {
+      if (activeSlide >= slides.length) {
+        console.warn(`Active slide ${activeSlide} is out of bounds (max ${slides.length - 1}). Resetting to slide 0.`);
+        setActiveSlide(0);
+      }
+    } else { // No slides currently available
+      if (activeSlide !== 0) {
+        console.warn(`No slides available, but activeSlide is ${activeSlide}. Resetting to slide 0.`);
+        setActiveSlide(0);
+      }
     }
-  }, [selectedTeam, activeSlide]);
+  }, [slides, activeSlide, setActiveSlide]); // Dependencies
 
   // Previous demos data (remains static for now)
   const previousDemos = [
