@@ -1,6 +1,6 @@
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from browser_use import Agent
-from browser_use.browser.browser import Browser, BrowserConfig
+from browser_use.browser.browser import Browser, BrowserConfig, BrowserContextConfig
 import asyncio
 from dotenv import load_dotenv
 import os
@@ -66,14 +66,20 @@ async def execute_agent(nl_task: str, root_url: str, browser_details: dict | Non
         logger.info(f"Attempting to connect to existing Chrome instance via CDP.")
         logger.info(f"Using Chrome path: {chrome_path}, CDP port: {port}")
 
+        # Create the BrowserContextConfig instance as requested
+        context_config = BrowserContextConfig(
+            highlight_elements=False  # Turn off element highlighting
+        )
+
         browser_config = BrowserConfig(
             chrome_instance_path=chrome_path,
             headless=False,
             disable_security=True, # As per user request
-            cdp_url=f"http://localhost:{port}"
+            cdp_url=f"http://localhost:{port}",
+            new_context_config=context_config # Pass the context config here (parameter name is an assumption)
         )
         
-        logger.debug(f"Initializing Browser with BrowserConfig: {browser_config}")
+        logger.debug(f"Initializing Browser with BrowserConfig: {browser_config} and ContextConfig: {context_config}")
         try:
             custom_browser = Browser(config=browser_config)
             custom_browser.page = None # As per user request
