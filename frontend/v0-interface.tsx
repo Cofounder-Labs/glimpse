@@ -642,18 +642,17 @@ const Sidepanel = ({
     setIsDropdownOpen(false); // Close the dropdown
 
     // If the selected team is Databricks, skip sending the mock mode to the backend.
-    if (team.id === "databricks") {
-      console.log("Databricks team selected. Skipping mock mode API call.");
+    if (team.id === "databricks") { // Removed "free-run" from this condition
+      console.log(`${team.name} team selected. Skipping mock mode API call.`);
       return;
     }
 
     // Determine the mock_mode ID based on the team's index in the teams array
-    // Assumes the order in the `teams` array corresponds to mock modes 1, 2, 3, 4
     const teamIndex = teams.findIndex(t => t.id === team.id);
     let mockModeToSet: number | null = null;
 
     if (teamIndex !== -1) {
-      mockModeToSet = teamIndex + 1; // e.g., teams[0] -> mock_mode 1, teams[1] -> mock_mode 2
+      mockModeToSet = teamIndex; // teamIndex directly corresponds to mock_mode (0 for Free Run)
     } else {
       console.error("Selected team not found in the teams list. Cannot set mock mode via API.");
       return; // Do not proceed if the team isn't found (should not happen with current setup)
@@ -863,11 +862,12 @@ export default function V0Interface() {
 
   // Define teams data here with imageCount
   const teams: Team[] = [
-    { id: "browser-use", name: "Team Browser Use", logo: "/browser-use.png", imageCount: 5 }, // Assuming 5 images
-    { id: "github", name: "GitHub for Education", logo: "/github.png", imageCount: 4 },      // Assuming 4 images
-    { id: "storylane", name: "Storylane", logo: "/storylane.png", imageCount: 3 },    // Assuming 6 images
-    { id: "glimpse", name: "Team Glimpse", logo: "/glimpse.png", imageCount: 3 },      // Assuming 5 images
-    { id: "databricks", name: "Databricks", logo: "/databricks.png", imageCount: 4 },      // Assuming 5 images
+    { id: "free-run", name: "Free Run", logo: "/free-run.png", imageCount: 3 }, // Added Free Run option
+    { id: "browser-use", name: "Team Browser Use", logo: "/browser-use.png", imageCount: 5 },
+    { id: "github", name: "GitHub for Education", logo: "/github.png", imageCount: 4 },
+    { id: "storylane", name: "Storylane", logo: "/storylane.png", imageCount: 3 },
+    { id: "glimpse", name: "Team Glimpse", logo: "/glimpse.png", imageCount: 3 },
+    { id: "databricks", name: "Databricks", logo: "/databricks.png", imageCount: 4 },
   ];
 
   // State for selected team - lifted up
@@ -886,7 +886,7 @@ export default function V0Interface() {
     let mockModeToSet: number | null = null;
 
     if (teamIndex !== -1) {
-      mockModeToSet = teamIndex + 1; // e.g., teams[0] -> mock_mode 1, teams[1] -> mock_mode 2
+      mockModeToSet = teamIndex; // Adjusted: teamIndex directly corresponds to mock_mode (0 for Free Run)
     } else {
       console.error("Selected team not found in the teams list. Cannot set initial mock mode via API.");
       return;
@@ -1056,8 +1056,8 @@ export default function V0Interface() {
       setJobId(null); // Reset job ID for all cases initially
 
       // Special handling for Databricks team
-      if (selectedTeam.id === "databricks") {
-        console.log("Databricks team selected. Bypassing backend demo generation.");
+      if (selectedTeam.id === "databricks") { // Removed "free-run" from this condition
+        console.log(`${selectedTeam.name} team selected. Bypassing backend demo generation.`);
         setTimeout(() => {
           console.log("5-second delay complete. Transitioning to Editor for Databricks.");
           setCurrentPage(PageState.Editor);
@@ -1065,7 +1065,7 @@ export default function V0Interface() {
         return; // Important: return to prevent the normal API call path
       }
 
-      // Regular path for other teams: Call the backend to generate the demo
+      // Regular path for other teams (including Free Run): Call the backend to generate the demo
       try {
         const response = await fetch("http://127.0.0.1:8000/generate-demo", {
           method: "POST",
@@ -1074,7 +1074,7 @@ export default function V0Interface() {
           },
           body: JSON.stringify({
             nl_task: inputText,
-            root_url: "google.com", // Placeholder, might need dynamic value?
+            root_url: selectedTeam.id === "free-run" ? "" : "google.com", // Set root_url to "" for Free Run
           }),
         })
 

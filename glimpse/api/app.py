@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from typing import Optional, List, Dict, Set
 import json
 import os
@@ -163,10 +163,36 @@ class DemoStatus(BaseModel):
     completed_at: Optional[datetime] = None
     error: Optional[str] = None
 
+class BoundingBox(BaseModel):
+    x: float      # x-coordinate as percentage of page width (0.0 to 1.0)
+    y: float      # y-coordinate as percentage of page height (0.0 to 1.0)
+    width: float  # width as percentage of page width (0.0 to 1.0)
+    height: float # height as percentage of page height (0.0 to 1.0)
+
+    @validator('x', 'width')
+    def validate_x_and_width(cls, v):
+        if not 0.0 <= v <= 1.0:
+            raise ValueError('x and width must be between 0.0 and 1.0')
+        return v
+
+    @validator('y', 'height')
+    def validate_y_and_height(cls, v):
+        if not 0.0 <= v <= 1.0:
+            raise ValueError('y and height must be between 0.0 and 1.0')
+        return v
+
+    def to_absolute_coordinates(self, page_width: int, page_height: int) -> dict:
+        """Convert relative coordinates to absolute pixel values for a given page size."""
+        return {
+            'x': int(self.x * page_width),
+            'y': int(self.y * page_height),
+            'width': int(self.width * page_width),
+            'height': int(self.height * page_height)
+        }
+
 class ClickPosition(BaseModel):
-    x: int
-    y: int
-    page_width: int
+    bounding_box: BoundingBox
+    page_width: int  # Store original page dimensions for reference
     page_height: int
 
 class DemoStep(BaseModel):
@@ -181,8 +207,8 @@ MOCK_MODE = os.getenv("MOCK_MODE", "false").lower() == "true"
 @app.post("/set-active-mock-mode")
 async def set_active_mock_mode(request: SetMockModeRequest):
     global ACTIVE_MOCK_MODE
-    if request.mock_mode is not None and not (1 <= request.mock_mode <= 5):
-        raise HTTPException(status_code=400, detail="Invalid mock_mode. Must be between 1 and 5, or null.")
+    if request.mock_mode is not None and not (0 <= request.mock_mode <= 5):
+        raise HTTPException(status_code=400, detail="Invalid mock_mode. Must be between 0 and 5, or null.")
     ACTIVE_MOCK_MODE = request.mock_mode
     return {"message": f"Active mock mode set to: {ACTIVE_MOCK_MODE if ACTIVE_MOCK_MODE is not None else 'None (disabled)'}"}
 
@@ -214,7 +240,11 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
 
         # 1. Check API-set active mock mode first
         if ACTIVE_MOCK_MODE is not None:
-            if ACTIVE_MOCK_MODE == 1:
+            if ACTIVE_MOCK_MODE == 0:  # Free Run mode
+                mode_message = "--- Running in FREE RUN mode ---"
+                task_to_execute = nl_task  # Use the provided task directly
+                current_root_url = ""  # Empty root URL for free run
+            elif ACTIVE_MOCK_MODE == 1:
                 mode_message = "--- Running in MOCK MODE 1 (API triggered) ---"
                 task_to_execute = MOCK_TASK_1
                 current_root_url = "https://browser-use.com"
@@ -236,7 +266,11 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
                 current_root_url = "http://localhost:3000/" # Set root URL for MOCK_TASK_5
         else:
             # 2. Fallback to environment variable mock modes if API mode is not set
-            if os.getenv("MOCK_MODE1", "false").lower() == "true":
+            if os.getenv("MOCK_MODE0", "false").lower() == "true":  # Free Run mode
+                mode_message = "--- Running in FREE RUN mode (ENV var) ---"
+                task_to_execute = nl_task  # Use the provided task directly
+                current_root_url = ""  # Empty root URL for free run
+            elif os.getenv("MOCK_MODE1", "false").lower() == "true":
                 mode_message = "--- Running in MOCK MODE 1 (ENV var) ---"
                 task_to_execute = MOCK_TASK_1
                 current_root_url = "https://browser-use.com"
