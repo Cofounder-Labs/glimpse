@@ -873,6 +873,55 @@ export default function V0Interface() {
   // State for selected team - lifted up
   const [selectedTeam, setSelectedTeam] = useState<Team>(teams[0]);
 
+  // Add effect to set mock mode on initial load
+  useEffect(() => {
+    // Skip if it's Databricks team
+    if (selectedTeam.id === "databricks") {
+      console.log("Databricks team selected. Skipping initial mock mode API call.");
+      return;
+    }
+
+    // Determine the mock_mode ID based on the team's index
+    const teamIndex = teams.findIndex(t => t.id === selectedTeam.id);
+    let mockModeToSet: number | null = null;
+
+    if (teamIndex !== -1) {
+      mockModeToSet = teamIndex + 1; // e.g., teams[0] -> mock_mode 1, teams[1] -> mock_mode 2
+    } else {
+      console.error("Selected team not found in the teams list. Cannot set initial mock mode via API.");
+      return;
+    }
+
+    // Call the API to set the mock mode
+    const setInitialMockMode = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:8000/set-active-mock-mode", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ mock_mode: mockModeToSet }),
+        });
+
+        if (!response.ok) {
+          const errorBody = await response.text();
+          console.error(
+            `API Error setting initial mock mode to ${mockModeToSet}:`,
+            response.status,
+            errorBody
+          );
+        } else {
+          const responseData = await response.json();
+          console.log(`Initial mock mode set to ${mockModeToSet} successfully:`, responseData);
+        }
+      } catch (error) {
+        console.error(`Network or other error setting initial mock mode to ${mockModeToSet}:`, error);
+      }
+    };
+
+    setInitialMockMode();
+  }, []); // Empty dependency array means this runs once on mount
+
   // Dynamically generate slides based on selectedTeam.imageCount
   const slides = Array.from({ length: selectedTeam.imageCount }, (_, i) => ({
     id: i,
