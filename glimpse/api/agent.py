@@ -105,58 +105,122 @@ async def execute_agent(nl_task: str, root_url: str, browser_details: dict | Non
         # Run the agent
         history_result = await agent.run() # Capture the full history object
 
-        # --- Screenshot Saving Logic for Free Run ---
-        # This part is relevant if this agent execution is for a "Free Run" like mode.
-        # The decision to save screenshots might be better placed in app.py based on ACTIVE_MOCK_MODE,
-        # but for now, let's assume execute_agent prepares these if called in a context that needs them.
-
         screenshots_saved = []
+        interactions_data = []
         run_artifact_folder_name = ""
-
-        # Define the base path for artifacts relative to the frontend's public directory
-        # This assumes api and frontend are sibling directories or this path is correctly resolved.
-        # A more robust solution might involve passing the frontend_public_dir_path as a config.
-        # For now, let's assume a relative path from the `glimpse` workspace root.
         base_artifacts_path = Path("frontend/public/run_artifacts")
-        
-        if hasattr(history_result, 'history') and isinstance(history_result.history, list):
-            if history_result.history: # Only create folder if there's history
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-                run_artifact_folder_name = f"run_{timestamp}"
-                specific_run_path = base_artifacts_path / run_artifact_folder_name
-                specific_run_path.mkdir(parents=True, exist_ok=True)
-                logger.info(f"Created artifact directory: {specific_run_path}")
 
-                for i, item in enumerate(history_result.history):
-                    if hasattr(item, 'state') and hasattr(item.state, 'screenshot') and item.state.screenshot:
-                        try:
-                            screenshot_data = item.state.screenshot
-                            if isinstance(screenshot_data, str): # Check if it's base64 string
-                                # Ensure correct base64 padding
-                                missing_padding = len(screenshot_data) % 4
-                                if missing_padding:
-                                    screenshot_data += '=' * (4 - missing_padding)
+        if hasattr(history_result, 'history') and isinstance(history_result.history, list) and history_result.history:
+            # Create artifact folder only if there's history
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            run_artifact_folder_name = f"run_{timestamp}"
+            specific_run_path = base_artifacts_path / run_artifact_folder_name
+            specific_run_path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created artifact directory: {specific_run_path}")
+
+            for i, history_item in enumerate(history_result.history):
+                # 1. Screenshot saving
+                if hasattr(history_item, 'state') and hasattr(history_item.state, 'screenshot') and history_item.state.screenshot:
+                    try:
+                        screenshot_data = history_item.state.screenshot
+                        if isinstance(screenshot_data, str): # Check if it's base64 string
+                            # Ensure correct base64 padding
+                            missing_padding = len(screenshot_data) % 4
+                            if missing_padding:
+                                screenshot_data += '=' * (4 - missing_padding)
+                            
+                            image_data = base64.b64decode(screenshot_data)
+                            screenshot_filename = f"{i+1:02d}.png"
+                            screenshot_file_path = specific_run_path / screenshot_filename
+                            
+                            with open(screenshot_file_path, "wb") as f:
+                                f.write(image_data)
+                            screenshots_saved.append(screenshot_filename)
+                            logger.debug(f"Saved screenshot for step {i+1}: {screenshot_file_path}")
+                        else:
+                            logger.warning(f"Screenshot for step {i+1} (item {i}) is not a string, skipping. Type: {type(screenshot_data)}")
+                    except base64.binascii.Error as b64_error:
+                        logger.error(f"Base64 decoding error for step {i+1} (item {i}) screenshot: {b64_error}. Data snippet: {str(screenshot_data)[:100]}...")
+                    except Exception as e:
+                        logger.error(f"Error saving screenshot for step {i+1} (item {i}): {e}")
+                else:
+                    logger.debug(f"No screenshot found for history item {i+1} (item {i}).")
+                
+                # 2. Action and interaction processing
+                if hasattr(history_item, 'model_output') and history_item.model_output and \
+                   hasattr(history_item.model_output, 'action') and history_item.model_output.action:
+                    
+                    actions_from_output = history_item.model_output.action
+                    # Ensure actions_from_output is a list for consistent iteration
+                    if not isinstance(actions_from_output, list):
+                        actions_from_output = [actions_from_output] # Handles single action case
+
+                    # Get interacted_elements from state: Optional[List[Dict]]
+                    interacted_elements_list = []
+                    if hasattr(history_item, 'state') and hasattr(history_item.state, 'interacted_element'):
+                        interacted_elements_list = history_item.state.interacted_element or [] # Defaults to empty list if None
+                    
+                    # Pad interacted_elements_list with None to match length of actions_from_output for safe zipping
+                    num_actions = len(actions_from_output)
+                    if len(interacted_elements_list) < num_actions:
+                        interacted_elements_list.extend([None] * (num_actions - len(interacted_elements_list)))
+                    elif len(interacted_elements_list) > num_actions: # If more elements than actions, truncate elements
+                        interacted_elements_list = interacted_elements_list[:num_actions]
+
+                    for j, (action_obj, element_dict) in enumerate(zip(actions_from_output, interacted_elements_list)):
+                        if not action_obj: # Should not happen if actions_from_output is properly populated
+                            logger.warning(f"History item {i+1}, action {j+1}: action_obj is None, skipping.")
+                            continue
+
+                        current_interaction_info = {}
+                        action_name = action_obj.__class__.__name__
+                        current_interaction_info['action_name'] = action_name
+
+                        # Store action parameters
+                        if hasattr(action_obj, 'model_dump'): # For Pydantic models
+                            current_interaction_info['action_parameters'] = action_obj.model_dump(exclude_none=True)
+                        elif hasattr(action_obj, '__dict__'): # For simple objects, try to get vars
+                            current_interaction_info['action_parameters'] = {k: v for k, v in vars(action_obj).items() if not k.startswith('_')}
+
+
+                        if element_dict: # element_dict is an object (e.g., DOMHistoryElement) or None
+                            # Access attributes directly, checking for existence first
+                            if hasattr(element_dict, 'tag'):
+                                current_interaction_info['element_tag'] = element_dict.tag
+                            if hasattr(element_dict, 'xpath'):
+                                current_interaction_info['element_xpath'] = element_dict.xpath
+                            
+                            if hasattr(element_dict, 'boundingBox') and element_dict.boundingBox:
+                                bbox = element_dict.boundingBox
+                                # boundingBox might be a dict or an object, try accessing as attributes first
+                                bbox_data = {}
+                                if hasattr(bbox, 'x'): bbox_data['x'] = bbox.x
+                                if hasattr(bbox, 'y'): bbox_data['y'] = bbox.y
+                                if hasattr(bbox, 'width'): bbox_data['width'] = bbox.width
+                                if hasattr(bbox, 'height'): bbox_data['height'] = bbox.height
                                 
-                                image_data = base64.b64decode(screenshot_data)
-                                screenshot_filename = f"{i+1:02d}.png"
-                                screenshot_file_path = specific_run_path / screenshot_filename
+                                # If attributes aren't found, and it's a dict, try dict access
+                                if not bbox_data and isinstance(bbox, dict):
+                                    if 'x' in bbox: bbox_data['x'] = bbox['x']
+                                    if 'y' in bbox: bbox_data['y'] = bbox['y']
+                                    if 'width' in bbox: bbox_data['width'] = bbox['width']
+                                    if 'height' in bbox: bbox_data['height'] = bbox['height']
                                 
-                                with open(screenshot_file_path, "wb") as f:
-                                    f.write(image_data)
-                                screenshots_saved.append(screenshot_filename)
-                                logger.debug(f"Saved screenshot: {screenshot_file_path}")
-                            else:
-                                logger.warning(f"Screenshot for item {i} is not a string, skipping.")
-                        except base64.binascii.Error as b64_error:
-                            logger.error(f"Base64 decoding error for screenshot {i}: {b64_error}. Data: {screenshot_data[:100]}...") # Log snippet of data
-                        except Exception as e:
-                            logger.error(f"Error saving screenshot {i}: {e}")
+                                if bbox_data:
+                                    current_interaction_info['bounding_box'] = bbox_data
+                        
+                        interactions_data.append(current_interaction_info)
+                else:
+                    logger.debug(f"History item {i+1} (item {i}): No model output or actions found.")
+        else:
+            logger.info("No history items found in history_result to process for artifacts.")
         
         # Return the results including artifact info
         return {
             "steps": history_result, # Original full result
             "artifact_path": f"run_artifacts/{run_artifact_folder_name}" if run_artifact_folder_name else "",
-            "screenshots": screenshots_saved
+            "screenshots": screenshots_saved,
+            "interactions": interactions_data # Add interactions data to the result
         }
         
     except Exception as e:

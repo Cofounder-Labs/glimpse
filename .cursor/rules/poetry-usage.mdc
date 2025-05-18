@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Whenever you have to add a new package, remember that we are using poetry, so use poetry add instead of trying to create a requirements.txt

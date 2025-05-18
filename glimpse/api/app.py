@@ -170,6 +170,7 @@ class DemoStatus(BaseModel):
     error: Optional[str] = None
     artifact_path: Optional[str] = None  # Add new field for artifact path
     screenshots: Optional[List[str]] = None # Add new field for screenshots list
+    interactions: Optional[List[Dict]] = None # Add new field for interactions data
 
 class BoundingBox(BaseModel):
     x: float      # x-coordinate as percentage of page width (0.0 to 1.0)
@@ -316,6 +317,11 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
                 logger.info(f"Free Run artifacts for job {job_id}: {agent_result['artifact_path']}, {len(agent_result['screenshots'])} screenshots")
             else:
                 logger.warning(f"Free Run mode for job {job_id} completed but no artifact path or screenshots found in agent result.")
+            
+            # Also save interactions if present
+            if agent_result.get("interactions"):
+                job_update_payload["interactions"] = agent_result["interactions"]
+                logger.info(f"Free Run interactions for job {job_id}: {len(agent_result['interactions'])} interactions recorded.")
 
         job_store[job_id].update(job_update_payload)
 
