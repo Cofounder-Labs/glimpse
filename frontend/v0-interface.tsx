@@ -1215,163 +1215,275 @@ export default function V0Interface() {
     setCurrentPage(PageState.Published)
   }
 
-  // NEW: VideoEditorView component (basic structure)
-  const VideoEditorView = ({
-    handlePublish,
-  }: {
-    handlePublish: () => void;
-  }) => {
-    const [activeTab, setActiveTab] = useState<"Wallpaper" | "Gradient" | "Color" | "Image">("Wallpaper");
-    const [wallpaperType, setWallpaperType] = useState<"macOS" | "Spring" | "Sunset" | "Radia">("macOS");
+// VideoEditorView component
+const VideoEditorView = ({
+  handlePublish,
+}: {
+  handlePublish: () => void
+}) => {
+  const [activeTab, setActiveTab] = useState<"Wallpaper" | "Gradient" | "Color" | "Image">("Wallpaper")
+  const [wallpaperType, setWallpaperType] = useState<"macOS" | "Spring" | "Sunset" | "Radia">("macOS")
 
-    return (
-      <div className="h-screen flex flex-col bg-gray-900 text-white">
-        {/* Top Bar (Placeholder) */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
-          <div className="flex items-center gap-2">
-            <button className="p-1 hover:bg-gray-700 rounded">
-              <ArrowLeft size={20} />
-            </button>
-            <span className="text-sm">Video Project Title</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 rounded-md">Export</button>
-            <button className="p-1 hover:bg-gray-700 rounded">
-              <MoreHorizontal size={20} />
-            </button>
+  return (
+    <div className="h-screen flex flex-col bg-white">
+      {/* Top Bar - Matches EditorView navbar */}
+      <div className="border-b flex items-center justify-between px-6 py-3">
+        <div className="flex items-center gap-4">
+          <button className="p-1 text-gray-600 hover:text-gray-900">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="font-medium">browser-use.com</div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="border-b-2 border-black px-4 py-2 text-black font-medium">Edit</div>
+          <div className="px-4 py-2 text-gray-600 hover:text-gray-900 cursor-pointer">Preview</div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button onClick={handlePublish} className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800">
+            Publish
+          </button>
+          <button className="px-3 py-1 border rounded-lg text-gray-600 hover:bg-gray-50">Share</button>
+          <button className="p-1 text-gray-600 hover:text-gray-900">
+            <MoreHorizontal className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Video Preview Area - Matches EditorView center area */}
+        <div className="flex-1 bg-gradient-to-b from-purple-600 to-purple-200 flex items-center justify-center p-4 overflow-auto">
+          {/* Browser Window Preview */}
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[85vh] aspect-video flex flex-col overflow-hidden">
+            {/* Browser Top Bar */}
+            <div className="bg-gray-100 h-8 flex items-center px-3 gap-1.5 border-b">
+              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+            </div>
+            {/* Browser Content Area */}
+            <div className="flex-1 bg-white flex items-center justify-center">
+              <div className="text-center text-gray-600">
+                <Monitor size={64} className="mx-auto mb-4 text-gray-400" />
+                <p className="text-lg font-medium">Interactive Browser Use</p>
+                <p className="text-sm mb-4 text-gray-500">What can I help you with?</p>
+                <input
+                  type="text"
+                  placeholder="Describe the goal, e.g., Log into my bank..."
+                  className="bg-gray-50 text-gray-700 placeholder-gray-400 px-3 py-2 rounded-md text-xs w-80 mb-2 border"
+                />
+                <button className="bg-black hover:bg-gray-800 text-white px-6 py-2 rounded-md text-sm">
+                  Start Session
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left Sidebar (Placeholder for tools/layers) */}
-          <div className="w-16 bg-gray-800 border-r border-gray-700 p-2 flex flex-col items-center space-y-3">
-            {[Grid, Copy /* Users2, Star */ /* Using Grid and Copy as placeholders */].map((Icon, idx) => (
-              <button key={idx} className="p-2 hover:bg-gray-700 rounded-md">
-                <Icon size={22} />
-              </button>
-            ))}
-          </div>
-
-          {/* Video Preview Area */}
-          <div className="flex-1 flex flex-col items-center justify-center bg-black relative p-4">
-             {/* Simulated Browser Window - Centered */}
-            <div className="w-full max-w-4xl aspect-video bg-gray-700 rounded-lg shadow-2xl flex flex-col overflow-hidden">
-              {/* Browser Top Bar */}
-              <div className="bg-gray-800 h-8 flex items-center px-3 gap-1.5">
-                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              </div>
-              {/* Browser Content Area - Placeholder */}
-              <div className="flex-1 bg-black flex items-center justify-center">
-                <div className="text-center text-gray-400">
-                  <Monitor size={64} className="mx-auto mb-4" />
-                  <p className="text-lg">Interactive Browser Use</p>
-                  <p className="text-sm mb-4">What can I help you with?</p>
-                  <input type="text" placeholder="Describe the goal, e.g., Log into my bank..." className="bg-gray-800 text-white placeholder-gray-500 px-3 py-2 rounded-md text-xs w-80 mb-2"/>
-                  <button className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-md text-sm">Start Session</button>
-                </div>
+        {/* Right Sidebar - Matches EditorView controls sidebar */}
+        <div className="w-80 flex flex-col border-l bg-white">
+          <div className="flex-1 overflow-y-auto">
+            {/* Chat Interface - Moved to top */}
+            <div className="p-6 border-b">
+              <textarea
+                placeholder="Ask Glimpse to edit this video..."
+                className="w-full p-3 border rounded-lg outline-none text-sm resize-none focus:ring-1 focus:ring-black"
+                rows={3}
+              />
+              <div className="flex justify-end mt-3">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-colors"
+                >
+                  Generate
+                </button>
               </div>
             </div>
-              {/* Simulated Camera Feed Overlay */}
-              <div className="absolute bottom-8 right-8 w-48 h-32 bg-gray-600 rounded-lg border-2 border-gray-500 overflow-hidden">
-                {/* Placeholder for camera feed */}
-                <div className="w-full h-full bg-gray-500 flex items-center justify-center text-xs text-gray-300">Camera Feed</div>
-              </div>
-          </div>
 
+            <div className="p-6">
+              <div className="mb-8">
+                <h3 className="font-medium text-xl mb-6">Design</h3>
 
-          {/* Right Sidebar (Editing Controls) */}
-          <div className="w-80 bg-gray-800 border-l border-gray-700 overflow-y-auto p-4 space-y-4">
-            <div>
-              <h3 className="text-sm font-medium mb-2">Background</h3>
-              <div className="flex items-center gap-1 bg-gray-700 p-1 rounded-md mb-3">
-                {(["Wallpaper", "Gradient", "Color", "Image"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-3 py-1.5 text-xs rounded-md flex-1 ${activeTab === tab ? "bg-gray-600" : "hover:bg-gray-600/50"}`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
+                <div className="space-y-8">
+                  <div>
+                    <div className="mb-4">
+                      <span className="text-gray-700 font-medium block mb-3">Background</span>
+                      <div className="flex items-center gap-3">
+                        {(["Wallpaper", "Gradient", "Color", "Image"] as const).map((tab) => (
+                          <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`px-3 py-1.5 text-sm rounded flex-1 ${
+                              activeTab === tab ? "bg-gray-200 text-gray-800" : "hover:bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {tab}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
 
-              {activeTab === "Wallpaper" && (
-                <div className="space-y-3">
-                  <h4 className="text-xs text-gray-400 mb-1">Wallpaper</h4>
-                   <div className="flex items-center gap-1 bg-gray-700 p-1 rounded-md mb-2">
-                    {(["macOS", "Spring", "Sunset", "Radia"] as const).map((type) => (
-                      <button
-                        key={type}
-                        onClick={() => setWallpaperType(type)}
-                        className={`px-2 py-1 text-xs rounded flex-1 ${wallpaperType === type ? "bg-gray-500" : "hover:bg-gray-600"}`}
-                      >
-                        {type}
+                  {activeTab === "Wallpaper" && (
+                    <div className="space-y-6">
+                      <div>
+                        <div className="mb-3">
+                          <span className="text-gray-700 block mb-3">Type</span>
+                          <div className="grid grid-cols-4 gap-3">
+                            {(["macOS", "Spring", "Sunset", "Radia"] as const).map((type) => (
+                              <button
+                                key={type}
+                                onClick={() => setWallpaperType(type)}
+                                className={`px-2 py-1.5 text-sm rounded ${
+                                  wallpaperType === type
+                                    ? "bg-gray-200 text-gray-800"
+                                    : "bg-gray-50 hover:bg-gray-100 text-gray-600"
+                                }`}
+                              >
+                                {type}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <button className="w-full flex items-center justify-center gap-2 text-sm py-2.5 bg-gray-50 hover:bg-gray-100 rounded-md text-gray-700 border">
+                        <Star size={16} /> Pick random wallpaper
                       </button>
-                    ))}
-                  </div>
-                  <button className="w-full flex items-center justify-center gap-2 text-xs py-2 bg-gray-700 hover:bg-gray-600 rounded-md">
-                    <Star size={14}/> Pick random wallpaper {/* Using Star as placeholder for wand */}
-                  </button>
-                  {/* Wallpaper Thumbnails (Placeholder) */}
-                  <div className="grid grid-cols-3 gap-2">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="aspect-video bg-gray-600 rounded hover:opacity-80 cursor-pointer"></div>
-                    ))}
+                      {/* Wallpaper Thumbnails */}
+                      <div className="grid grid-cols-3 gap-3 mt-2">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                          <div
+                            key={i}
+                            className="aspect-video bg-gray-100 rounded hover:bg-gray-200 cursor-pointer border"
+                          ></div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-gray-700">Background blur</span>
+                        <div className="w-40">
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            defaultValue="30"
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-gray-700">Padding</span>
+                        <div className="w-40">
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            defaultValue="50"
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-gray-700">Rounded corners</span>
+                        <div className="w-40">
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            defaultValue="60"
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
-               {/* Add Gradient, Color, Image sections later */}
-            </div>
-
-            <div>
-              <label htmlFor="bg-blur" className="text-xs text-gray-400 block mb-1">Background blur</label>
-              <input type="range" id="bg-blur" min="0" max="100" defaultValue="30" className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-            </div>
-            <div>
-              <label htmlFor="padding" className="text-xs text-gray-400 block mb-1">Padding</label>
-              <input type="range" id="padding" min="0" max="100" defaultValue="50" className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-            </div>
-            <div>
-              <label htmlFor="corners" className="text-xs text-gray-400 block mb-1">Rounded corners</label>
-              <input type="range" id="corners" min="0" max="100" defaultValue="60" className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-            </div>
-             {/* More controls can be added here: Opacity, Fit/Fill, Filters etc. */}
-          </div>
-        </div>
-
-        {/* Timeline Area (Placeholder) */}
-        <div className="h-28 bg-gray-800 border-t border-gray-700 p-3 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span>1 visible timeline</span>
-            <ChevronDown size={16} />
-          </div>
-          {/* Timeline controls and track (Simplified) */}
-          <div className="flex-1 bg-gray-700 rounded flex items-center justify-center text-xs text-gray-400 relative">
-            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-1 h-6 bg-purple-500 rounded-full"></div> {/* Playhead */}
-            Timeline Track
-          </div>
-           <div className="flex items-center justify-between mt-1">
-              <div className="flex items-center gap-2">
-                   {/* Placeholder for timeline controls */}
-                  <button className="p-1 hover:bg-gray-700 rounded"><SkipBack size={16}/></button>
-                  <button className="p-1 hover:bg-gray-700 rounded"><Play size={16}/></button>
-                  <button className="p-1 hover:bg-gray-700 rounded"><SkipForward size={16}/></button>
               </div>
-              <div className="text-xs">0:00 / 0:30</div> {/* Placeholder time */}
-              <div className="flex items-center gap-2">
-                   {/* Placeholder for zoom/other controls */}
-                  <button className="p-1 hover:bg-gray-700 rounded"><ZoomOut size={16}/></button>
-                  <input type="range" min="0" max="100" defaultValue="50" className="w-20 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-                  <button className="p-1 hover:bg-gray-700 rounded"><ZoomIn size={16}/></button>
+
+              <div className="pt-6 border-t">
+                <h3 className="font-medium text-xl mb-6">Content</h3>
+
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-gray-700">Audio</span>
+                    <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
+                      <span className="text-sm">None</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-gray-700">Transitions</span>
+                    <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
+                      <span className="text-sm">Fade</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
               </div>
+            </div>
           </div>
         </div>
       </div>
-    );
-  };
+
+      {/* Timeline Area - Styled to match the light theme */}
+      <div className="h-28 bg-white border-t p-3 flex flex-col justify-between">
+        <div className="flex items-center justify-between text-xs mb-1">
+          <span className="text-gray-600">1 visible timeline</span>
+          <ChevronDown size={16} className="text-gray-600" />
+        </div>
+        {/* Timeline controls and track */}
+        <div className="flex-1 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-500 relative border">
+          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-1 h-6 bg-black rounded-full"></div>{" "}
+          {/* Playhead */}
+          Timeline Track
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center gap-2">
+            <button className="p-1 hover:bg-gray-100 rounded text-gray-600">
+              <SkipBack size={16} />
+            </button>
+            <button className="p-1 hover:bg-gray-100 rounded text-gray-600">
+              <Play size={16} />
+            </button>
+            <button className="p-1 hover:bg-gray-100 rounded text-gray-600">
+              <SkipForward size={16} />
+            </button>
+          </div>
+          <div className="text-xs text-gray-600">0:00 / 0:30</div>
+          <div className="flex items-center gap-2">
+            <button className="p-1 hover:bg-gray-100 rounded text-gray-600">
+              <ZoomOut size={16} />
+            </button>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              defaultValue="50"
+              className="w-20 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+            />
+            <button className="p-1 hover:bg-gray-100 rounded text-gray-600">
+              <ZoomIn size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 
   // Conditional rendering for different views
   if (currentPage === PageState.Published) {
