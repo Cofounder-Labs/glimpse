@@ -41,15 +41,16 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
         # Configure browser context for recording and other settings
         context_config = BrowserContextConfig(
             highlight_elements=False,
-            save_recording_path=str(recording_save_dir)
+            save_recording_path=str(recording_save_dir),
+            force_new_context=True
         )
           
         # Configure and initialize browser (without new_context_config as context is explicit)
         browser_config = BrowserConfig(  
-            # chrome_instance_path=chrome_path,  
+            chrome_instance_path=chrome_path,  
             headless=False,  
             disable_security=True,  
-            # cdp_url=f"http://localhost:{port}"
+            cdp_url=f"http://localhost:{port}"
         )  
           
         browser_instance = Browser(config=browser_config)
