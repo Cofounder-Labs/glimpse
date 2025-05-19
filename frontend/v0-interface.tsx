@@ -22,6 +22,11 @@ import {
   Grid,
   Users2,
   Star,
+  SkipBack,
+  Play,
+  SkipForward,
+  ZoomOut,
+  ZoomIn,
 } from "lucide-react"
 import { useState, useEffect, useMemo } from "react"
 
@@ -519,13 +524,15 @@ const InputForm = ({
   inputText,
   setInputText,
   handleSubmit,
+  demoType,
+  setDemoType,
 }: {
   inputText: string
   setInputText: (text: string) => void
   handleSubmit: (e: React.FormEvent) => void
+  demoType: "video" | "screenshot"
+  setDemoType: (type: "video" | "screenshot") => void
 }) => {
-  const [demoType, setDemoType] = useState("feature"); 
-
   return (
   <form onSubmit={handleSubmit} className="w-full max-w-3xl mb-8">
     <div className="border rounded-2xl shadow-sm bg-white">
@@ -543,11 +550,11 @@ const InputForm = ({
         <div>
           <select
             value={demoType}
-            onChange={(e) => setDemoType(e.target.value)}
+            onChange={(e) => setDemoType(e.target.value as "video" | "screenshot")}
             className="w-auto bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 text-sm text-gray-600 focus:outline-none focus:ring-1 focus:ring-black focus:border-black hover:bg-gray-100 transition-colors"
           >
-            <option value="feature">Build a feature demo</option>
-            <option value="clone">Build an interactable clone</option>
+            <option value="video">Video</option>
+            <option value="screenshot">Screenshot</option>
           </select>
         </div>
         <div className="flex items-center gap-2">
@@ -794,7 +801,9 @@ const HomePage = ({
   previousDemos,
   selectedTeam, // Receive state
   setSelectedTeam, // Receive handler
-  teams // Receive team data
+  teams, // Receive team data
+  demoType, // Add demoType
+  setDemoType, // Add setDemoType
 }: {
   inputText: string
   setInputText: (text: string) => void
@@ -803,6 +812,8 @@ const HomePage = ({
   selectedTeam: Team;
   setSelectedTeam: (team: Team) => void;
   teams: Team[];
+  demoType: "video" | "screenshot"; // Add demoType prop
+  setDemoType: (type: "video" | "screenshot") => void; // Add setDemoType prop
 }) => (
   <div className="flex h-screen bg-white">
     {/* Pass props to Sidepanel */}
@@ -810,7 +821,7 @@ const HomePage = ({
     <div className="flex-1 flex flex-col items-center overflow-y-auto">
       <div className="container mx-auto px-4 py-16 flex flex-col items-center w-full">
         <h1 className="text-4xl font-bold text-center mb-8">What are we demoing today?</h1>
-        <InputForm inputText={inputText} setInputText={setInputText} handleSubmit={handleSubmit} />
+        <InputForm inputText={inputText} setInputText={setInputText} handleSubmit={handleSubmit} demoType={demoType} setDemoType={setDemoType} />
         <SuggestedActions />
         <PreviousDemosSection previousDemos={previousDemos} />
       </div>
@@ -848,6 +859,7 @@ enum PageState {
   Loading = 1,
   Editor = 2,
   Published = 3,
+  VideoEditor = 4, // Added new state for Video Editor
 }
 
 export default function V0Interface() {
@@ -861,6 +873,8 @@ export default function V0Interface() {
   const [selectedBgColor, setSelectedBgColor] = useState("bg-gradient-to-b from-purple-600 to-purple-200")
   const [artifactPath, setArtifactPath] = useState<string | null>(null)
   const [screenshotsList, setScreenshotsList] = useState<string[]>([])
+  const [demoType, setDemoType] = useState<"video" | "screenshot">("video")
+  const [intendedEditorType, setIntendedEditorType] = useState<"video" | "screenshot">("video")
 
   // Define teams data here with imageCount
   const teams: Team[] = [
@@ -1063,8 +1077,12 @@ export default function V0Interface() {
                 fetchJobDetails();
               } else {
                 // For non-Free Run modes, transition directly
-                console.log("Job completed for non-Free Run. Transitioning to Editor.");
-                setCurrentPage(PageState.Editor);
+                console.log("Job completed for non-Free Run. Transitioning based on intendedEditorType:", intendedEditorType);
+                if (intendedEditorType === "video") {
+                  setCurrentPage(PageState.VideoEditor);
+                } else {
+                  setCurrentPage(PageState.Editor);
+                }
                 ws.close();
               }
             } else if (message.status === "failed") {
@@ -1100,7 +1118,7 @@ export default function V0Interface() {
         }
       }
     }
-  }, [currentPage, jobId, setCurrentPage, setJobId])
+  }, [currentPage, jobId, setCurrentPage, setJobId, intendedEditorType])
 
   // useEffect to transition to Editor for Free Run once artifacts are loaded
   useEffect(() => {
@@ -1111,10 +1129,14 @@ export default function V0Interface() {
         artifactPath && 
         screenshotsList.length > 0
     ) {
-      console.log("Free Run artifacts ready, conditions met! Transitioning to Editor view.", artifactPath, screenshotsList);
-      setCurrentPage(PageState.Editor);
+      console.log("Free Run artifacts ready, conditions met! Transitioning based on intendedEditorType:", intendedEditorType, artifactPath, screenshotsList);
+      if (intendedEditorType === "video") {
+        setCurrentPage(PageState.VideoEditor);
+      } else {
+        setCurrentPage(PageState.Editor);
+      }
     }
-  }, [currentPage, selectedTeam, artifactPath, screenshotsList, setCurrentPage]);
+  }, [currentPage, selectedTeam, artifactPath, screenshotsList, setCurrentPage, intendedEditorType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1124,13 +1146,18 @@ export default function V0Interface() {
       setJobId(null); 
       setArtifactPath(null); // Reset artifacts
       setScreenshotsList([]); // Reset artifacts
+      setIntendedEditorType(demoType); // Store the selected demo type for editor routing
 
       // Special handling for Databricks team
-      if (selectedTeam.id === "databricks") { // Removed "free-run" from this condition
-        console.log(`${selectedTeam.name} team selected. Bypassing backend demo generation.`);
+      if (selectedTeam.id === "databricks") { 
+        console.log(`${selectedTeam.name} team selected. Bypassing backend demo generation. Intended editor: ${demoType}`);
         setTimeout(() => {
-          console.log("5-second delay complete. Transitioning to Editor for Databricks.");
-          setCurrentPage(PageState.Editor);
+          console.log(`5-second delay complete. Transitioning for Databricks to ${demoType} editor.`);
+          if (demoType === "video") {
+            setCurrentPage(PageState.VideoEditor);
+          } else {
+            setCurrentPage(PageState.Editor);
+          }
         }, 5000); // 5-second delay
         return; // Important: return to prevent the normal API call path
       }
@@ -1188,6 +1215,164 @@ export default function V0Interface() {
     setCurrentPage(PageState.Published)
   }
 
+  // NEW: VideoEditorView component (basic structure)
+  const VideoEditorView = ({
+    handlePublish,
+  }: {
+    handlePublish: () => void;
+  }) => {
+    const [activeTab, setActiveTab] = useState<"Wallpaper" | "Gradient" | "Color" | "Image">("Wallpaper");
+    const [wallpaperType, setWallpaperType] = useState<"macOS" | "Spring" | "Sunset" | "Radia">("macOS");
+
+    return (
+      <div className="h-screen flex flex-col bg-gray-900 text-white">
+        {/* Top Bar (Placeholder) */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
+          <div className="flex items-center gap-2">
+            <button className="p-1 hover:bg-gray-700 rounded">
+              <ArrowLeft size={20} />
+            </button>
+            <span className="text-sm">Video Project Title</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 rounded-md">Export</button>
+            <button className="p-1 hover:bg-gray-700 rounded">
+              <MoreHorizontal size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left Sidebar (Placeholder for tools/layers) */}
+          <div className="w-16 bg-gray-800 border-r border-gray-700 p-2 flex flex-col items-center space-y-3">
+            {[Grid, Copy /* Users2, Star */ /* Using Grid and Copy as placeholders */].map((Icon, idx) => (
+              <button key={idx} className="p-2 hover:bg-gray-700 rounded-md">
+                <Icon size={22} />
+              </button>
+            ))}
+          </div>
+
+          {/* Video Preview Area */}
+          <div className="flex-1 flex flex-col items-center justify-center bg-black relative p-4">
+             {/* Simulated Browser Window - Centered */}
+            <div className="w-full max-w-4xl aspect-video bg-gray-700 rounded-lg shadow-2xl flex flex-col overflow-hidden">
+              {/* Browser Top Bar */}
+              <div className="bg-gray-800 h-8 flex items-center px-3 gap-1.5">
+                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              </div>
+              {/* Browser Content Area - Placeholder */}
+              <div className="flex-1 bg-black flex items-center justify-center">
+                <div className="text-center text-gray-400">
+                  <Monitor size={64} className="mx-auto mb-4" />
+                  <p className="text-lg">Interactive Browser Use</p>
+                  <p className="text-sm mb-4">What can I help you with?</p>
+                  <input type="text" placeholder="Describe the goal, e.g., Log into my bank..." className="bg-gray-800 text-white placeholder-gray-500 px-3 py-2 rounded-md text-xs w-80 mb-2"/>
+                  <button className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-md text-sm">Start Session</button>
+                </div>
+              </div>
+            </div>
+              {/* Simulated Camera Feed Overlay */}
+              <div className="absolute bottom-8 right-8 w-48 h-32 bg-gray-600 rounded-lg border-2 border-gray-500 overflow-hidden">
+                {/* Placeholder for camera feed */}
+                <div className="w-full h-full bg-gray-500 flex items-center justify-center text-xs text-gray-300">Camera Feed</div>
+              </div>
+          </div>
+
+
+          {/* Right Sidebar (Editing Controls) */}
+          <div className="w-80 bg-gray-800 border-l border-gray-700 overflow-y-auto p-4 space-y-4">
+            <div>
+              <h3 className="text-sm font-medium mb-2">Background</h3>
+              <div className="flex items-center gap-1 bg-gray-700 p-1 rounded-md mb-3">
+                {(["Wallpaper", "Gradient", "Color", "Image"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-3 py-1.5 text-xs rounded-md flex-1 ${activeTab === tab ? "bg-gray-600" : "hover:bg-gray-600/50"}`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+
+              {activeTab === "Wallpaper" && (
+                <div className="space-y-3">
+                  <h4 className="text-xs text-gray-400 mb-1">Wallpaper</h4>
+                   <div className="flex items-center gap-1 bg-gray-700 p-1 rounded-md mb-2">
+                    {(["macOS", "Spring", "Sunset", "Radia"] as const).map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setWallpaperType(type)}
+                        className={`px-2 py-1 text-xs rounded flex-1 ${wallpaperType === type ? "bg-gray-500" : "hover:bg-gray-600"}`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                  <button className="w-full flex items-center justify-center gap-2 text-xs py-2 bg-gray-700 hover:bg-gray-600 rounded-md">
+                    <Star size={14}/> Pick random wallpaper {/* Using Star as placeholder for wand */}
+                  </button>
+                  {/* Wallpaper Thumbnails (Placeholder) */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="aspect-video bg-gray-600 rounded hover:opacity-80 cursor-pointer"></div>
+                    ))}
+                  </div>
+                </div>
+              )}
+               {/* Add Gradient, Color, Image sections later */}
+            </div>
+
+            <div>
+              <label htmlFor="bg-blur" className="text-xs text-gray-400 block mb-1">Background blur</label>
+              <input type="range" id="bg-blur" min="0" max="100" defaultValue="30" className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+            </div>
+            <div>
+              <label htmlFor="padding" className="text-xs text-gray-400 block mb-1">Padding</label>
+              <input type="range" id="padding" min="0" max="100" defaultValue="50" className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+            </div>
+            <div>
+              <label htmlFor="corners" className="text-xs text-gray-400 block mb-1">Rounded corners</label>
+              <input type="range" id="corners" min="0" max="100" defaultValue="60" className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+            </div>
+             {/* More controls can be added here: Opacity, Fit/Fill, Filters etc. */}
+          </div>
+        </div>
+
+        {/* Timeline Area (Placeholder) */}
+        <div className="h-28 bg-gray-800 border-t border-gray-700 p-3 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span>1 visible timeline</span>
+            <ChevronDown size={16} />
+          </div>
+          {/* Timeline controls and track (Simplified) */}
+          <div className="flex-1 bg-gray-700 rounded flex items-center justify-center text-xs text-gray-400 relative">
+            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-1 h-6 bg-purple-500 rounded-full"></div> {/* Playhead */}
+            Timeline Track
+          </div>
+           <div className="flex items-center justify-between mt-1">
+              <div className="flex items-center gap-2">
+                   {/* Placeholder for timeline controls */}
+                  <button className="p-1 hover:bg-gray-700 rounded"><SkipBack size={16}/></button>
+                  <button className="p-1 hover:bg-gray-700 rounded"><Play size={16}/></button>
+                  <button className="p-1 hover:bg-gray-700 rounded"><SkipForward size={16}/></button>
+              </div>
+              <div className="text-xs">0:00 / 0:30</div> {/* Placeholder time */}
+              <div className="flex items-center gap-2">
+                   {/* Placeholder for zoom/other controls */}
+                  <button className="p-1 hover:bg-gray-700 rounded"><ZoomOut size={16}/></button>
+                  <input type="range" min="0" max="100" defaultValue="50" className="w-20 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+                  <button className="p-1 hover:bg-gray-700 rounded"><ZoomIn size={16}/></button>
+              </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Conditional rendering for different views
   if (currentPage === PageState.Published) {
     return (
@@ -1198,6 +1383,15 @@ export default function V0Interface() {
         handleStartNewTask={handleStartNewTask}
       />
     )
+  }
+
+  if (currentPage === PageState.VideoEditor) { // Added new condition for VideoEditor
+    return (
+      <VideoEditorView
+        handlePublish={handlePublish}
+        // Pass other necessary props here
+      />
+    );
   }
 
   if (currentPage === PageState.Editor) {
@@ -1226,6 +1420,8 @@ export default function V0Interface() {
             selectedTeam={selectedTeam} // Pass state down
             setSelectedTeam={setSelectedTeam} // Pass handler down
             teams={teams} // Pass team data down
+            demoType={demoType} // Pass demoType down
+            setDemoType={setDemoType} // Pass setDemoType down
           />
         ) : (
           <LoadingView submittedText={submittedText} loadingText={loadingText} loadingDots={loadingDots} />
