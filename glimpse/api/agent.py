@@ -202,6 +202,7 @@ def _convert_to_mp4(input_path: str, output_path: str) -> bool:
     try:
         # Basic ffmpeg command for conversion.
         # -i: input file
+        # -vf: video filter
         # -c:v libx264: video codec
         # -preset medium: encoding speed/quality trade-off
         # -crf 23: constant rate factor (quality, lower is better, 18-28 is typical)
@@ -210,6 +211,7 @@ def _convert_to_mp4(input_path: str, output_path: str) -> bool:
         # -y: overwrite output file if it exists
         command = [
             'ffmpeg', '-i', input_path,
+            '-vf', 'crop=iw:ih*0.88:0:0',
             '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
             '-c:a', 'aac', '-b:a', '128k',
             '-y', output_path
