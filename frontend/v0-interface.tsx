@@ -130,11 +130,15 @@ const PublishedView = ({
   slides,
   bgColor,
   handleStartNewTask,
+  intendedEditorType,
+  recordingUrl,
 }: {
   submittedText: string
   slides: { id: number; title: string; content: string }[]
   bgColor: string
   handleStartNewTask: () => void
+  intendedEditorType: "video" | "screenshot"
+  recordingUrl: string | null
 }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
 
@@ -170,40 +174,48 @@ const PublishedView = ({
 
         {/* Slideshow Section */}
         <div className={`border rounded-lg p-8 mb-8 ${bgColor}`}> {/* Apply background color here */}
-          {/* Slideshow Display Area */}
-          <div className="relative w-full aspect-video bg-white/80 backdrop-blur-md rounded-lg shadow-xl overflow-hidden flex items-center justify-center mb-6">
-            {currentSlide && (
-              <Image
-                src={currentSlide.content}
-                alt={currentSlide.title}
-                layout="fill"
-                objectFit="contain" // Use contain for slideshow view
-                className="absolute inset-0 w-full h-full"
-                priority={true} // Prioritize loading the visible slide image
-              />
-            )}
-          </div>
+          {/* Slideshow Display Area or Video Player */} 
+          {intendedEditorType === 'video' && recordingUrl ? (
+            <div className="relative w-full aspect-video bg-black rounded-lg shadow-xl overflow-hidden flex items-center justify-center mb-6">
+              <video src={recordingUrl} controls className="absolute inset-0 w-full h-full" />
+            </div>
+          ) : (
+            <>
+              <div className="relative w-full aspect-video bg-white/80 backdrop-blur-md rounded-lg shadow-xl overflow-hidden flex items-center justify-center mb-6">
+                {currentSlide && (
+                  <Image
+                    src={currentSlide.content}
+                    alt={currentSlide.title}
+                    layout="fill"
+                    objectFit="contain" // Use contain for slideshow view
+                    className="absolute inset-0 w-full h-full"
+                    priority={true} // Prioritize loading the visible slide image
+                  />
+                )}
+              </div>
 
-          {/* Navigation Controls */}
-          <div className="flex items-center justify-between w-full">
-            <button
-              onClick={goToPrevious}
-              disabled={currentSlideIndex === 0}
-              className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed bg-white/70 backdrop-blur-sm flex items-center gap-2 text-sm"
-            >
-              Previous
-            </button>
-            <span className="text-sm text-gray-700 bg-white/70 backdrop-blur-sm px-3 py-1 rounded-full">
-              Slide {currentSlideIndex + 1} of {slides.length}
-            </span>
-            <button
-              onClick={goToNext}
-              disabled={currentSlideIndex === slides.length - 1}
-              className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed bg-white/70 backdrop-blur-sm flex items-center gap-2 text-sm"
-            >
-              Next
-            </button>
-          </div>
+              {/* Navigation Controls - Only show for slides */} 
+              <div className="flex items-center justify-between w-full">
+                <button
+                  onClick={goToPrevious}
+                  disabled={currentSlideIndex === 0}
+                  className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed bg-white/70 backdrop-blur-sm flex items-center gap-2 text-sm"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-700 bg-white/70 backdrop-blur-sm px-3 py-1 rounded-full">
+                  Slide {currentSlideIndex + 1} of {slides.length}
+                </span>
+                <button
+                  onClick={goToNext}
+                  disabled={currentSlideIndex === slides.length - 1}
+                  className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed bg-white/70 backdrop-blur-sm flex items-center gap-2 text-sm"
+                >
+                  Next
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
          {/* Share Link Section (Optional - kept original structure) */}
@@ -272,6 +284,7 @@ const EditorView = ({
   setActiveSlide,
   selectedBgColor,
   setSelectedBgColor,
+  handleGoToHome,
 }: {
   handlePublish: () => void
   slides: { id: number; title: string; content: string }[]
@@ -279,6 +292,7 @@ const EditorView = ({
   setActiveSlide: (index: number) => void
   selectedBgColor: string
   setSelectedBgColor: (color: string) => void
+  handleGoToHome: () => void
 }) => {
   // Define background color options
   const backgroundColors = [
@@ -293,7 +307,7 @@ const EditorView = ({
     <div className="h-screen flex flex-col bg-white">
       <div className="border-b flex items-center justify-between px-6 py-3">
         <div className="flex items-center gap-4">
-          <button className="p-1 text-gray-600 hover:text-gray-900">
+          <button onClick={() => { console.log('EditorView: Back button clicked'); handleGoToHome(); }} className="p-1 text-gray-600 hover:text-gray-900">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="font-medium">browser-use.com</div>
@@ -1127,17 +1141,16 @@ export default function V0Interface() {
     }
   }
 
-  const handleStartNewTask = () => {
-    setInputText("")
-    setSubmittedText("")
-    setCurrentPage(PageState.Home)
-    setActiveSlide(0)
-    setJobId(null)
-    setArtifactPath(null); // Reset artifacts
-    setScreenshotsList([]); // Reset artifacts
-    // Reset selected team? Maybe not necessary depending on desired UX
-    // setSelectedTeam(teams[0]); 
-  }
+  // New handler to go home without clearing input text
+  const handleGoToHome = () => {
+    console.log('[handleGoToHome] Called. Current PageState:', PageState[currentPage]);
+    setCurrentPage(PageState.Home);
+    console.log('[handleGoToHome] Set PageState to Home. Updated PageState (after set): Should be Home in next render.');
+    // We intentionally don't reset inputText, submittedText, jobId, artifactPath, screenshotsList here
+    // so the user can resume or see their previous context on the home page.
+    // ActiveSlide is reset as it's editor-specific.
+    setActiveSlide(0);
+  };
 
   const handlePublish = () => {
     setCurrentPage(PageState.Published)
@@ -1147,9 +1160,11 @@ export default function V0Interface() {
 const VideoEditorView = ({
   handlePublish,
   recordingUrl,
+  handleGoToHome,
 }: {
   handlePublish: () => void
   recordingUrl: string | null;
+  handleGoToHome: () => void;
 }) => {
   const [activeTab, setActiveTab] = useState<"Wallpaper" | "Gradient" | "Color" | "Image">("Wallpaper")
   const [wallpaperType, setWallpaperType] = useState<"macOS" | "Spring" | "Sunset" | "Radia">("macOS")
@@ -1159,7 +1174,7 @@ const VideoEditorView = ({
       {/* Top Bar - Matches EditorView navbar */}
       <div className="border-b flex items-center justify-between px-6 py-3">
         <div className="flex items-center gap-4">
-          <button className="p-1 text-gray-600 hover:text-gray-900">
+          <button onClick={() => { console.log('VideoEditorView: Back button clicked'); handleGoToHome(); }} className="p-1 text-gray-600 hover:text-gray-900">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="font-medium">browser-use.com</div>
@@ -1408,12 +1423,15 @@ const VideoEditorView = ({
 
   // Conditional rendering for different views
   if (currentPage === PageState.Published) {
+    console.log('[V0Interface Render] Rendering PublishedView. intendedEditorType:', intendedEditorType, 'recordingUrl:', recordingUrl);
     return (
       <PublishedView
-        submittedText={submittedText} // You might want to pass selectedTeam.name here or adjust
-        slides={slides} // Pass dynamically generated slides
+        submittedText={submittedText}
+        slides={slides}
         bgColor={selectedBgColor}
-        handleStartNewTask={handleStartNewTask}
+        handleStartNewTask={handleGoToHome}
+        intendedEditorType={intendedEditorType}
+        recordingUrl={recordingUrl}
       />
     )
   }
@@ -1423,6 +1441,7 @@ const VideoEditorView = ({
       <VideoEditorView
         handlePublish={handlePublish}
         recordingUrl={recordingUrl}
+        handleGoToHome={handleGoToHome}
       />
     );
   }
@@ -1431,11 +1450,12 @@ const VideoEditorView = ({
     return (
       <EditorView
         handlePublish={handlePublish}
-        slides={slides} // Pass dynamically generated slides
+        slides={slides}
         activeSlide={activeSlide}
         setActiveSlide={setActiveSlide}
         selectedBgColor={selectedBgColor}
         setSelectedBgColor={setSelectedBgColor}
+        handleGoToHome={handleGoToHome}
       />
     )
   }
@@ -1450,11 +1470,11 @@ const VideoEditorView = ({
             setInputText={setInputText}
             handleSubmit={handleSubmit}
             previousDemos={previousDemos}
-            selectedTeam={selectedTeam} // Pass state down
-            setSelectedTeam={setSelectedTeam} // Pass handler down
-            teams={teams} // Pass team data down
-            demoType={demoType} // Pass demoType down
-            setDemoType={setDemoType} // Pass setDemoType down
+            selectedTeam={selectedTeam}
+            setSelectedTeam={setSelectedTeam}
+            teams={teams}
+            demoType={demoType}
+            setDemoType={setDemoType}
           />
         ) : (
           <LoadingView submittedText={submittedText} loadingText={loadingText} loadingDots={loadingDots} />
