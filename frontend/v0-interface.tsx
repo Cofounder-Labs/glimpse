@@ -132,6 +132,7 @@ const PublishedView = ({
   handleStartNewTask,
   intendedEditorType,
   recordingUrl,
+  handleGoBackToEditor,
 }: {
   submittedText: string
   slides: { id: number; title: string; content: string }[]
@@ -139,6 +140,7 @@ const PublishedView = ({
   handleStartNewTask: () => void
   intendedEditorType: "video" | "screenshot"
   recordingUrl: string | null
+  handleGoBackToEditor: () => void
 }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
 
@@ -158,9 +160,12 @@ const PublishedView = ({
       <div className="max-w-5xl mx-auto">
         {/* Back Button */}
         <div className="mb-8">
-          <button onClick={handleStartNewTask} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
+        <button 
+            onClick={handleGoBackToEditor} 
+            className="px-6 py-3 border rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back to home</span>
+            <span>Back to Editor</span>
           </button>
         </div>
 
@@ -233,6 +238,7 @@ const PublishedView = ({
 
         {/* Action Buttons */}
         <div className="flex justify-center gap-4">
+          
           <button className="px-6 py-3 border rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2">
             <Share2 className="w-5 h-5" />
             <span>Share</span>
@@ -1152,6 +1158,19 @@ export default function V0Interface() {
     setActiveSlide(0);
   };
 
+  // New handler to go back to the appropriate editor from Published view
+  const handleGoBackToEditor = () => {
+    console.log('[handleGoBackToEditor] Called. Current PageState:', PageState[currentPage], 'intendedEditorType:', intendedEditorType);
+    if (intendedEditorType === 'video') {
+      setCurrentPage(PageState.VideoEditor);
+      console.log('[handleGoBackToEditor] Set PageState to VideoEditor.');
+    } else {
+      setCurrentPage(PageState.Editor);
+      console.log('[handleGoBackToEditor] Set PageState to Editor.');
+    }
+    // States like activeSlide, inputText, recordingUrl etc. are preserved
+  };
+
   const handlePublish = () => {
     setCurrentPage(PageState.Published)
   }
@@ -1432,6 +1451,7 @@ const VideoEditorView = ({
         handleStartNewTask={handleGoToHome}
         intendedEditorType={intendedEditorType}
         recordingUrl={recordingUrl}
+        handleGoBackToEditor={handleGoBackToEditor}
       />
     )
   }
