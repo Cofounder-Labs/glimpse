@@ -10,6 +10,7 @@ from screeninfo import get_monitors
 import base64
 from pathlib import Path
 from datetime import datetime
+import subprocess
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -163,12 +164,27 @@ def _process_history(history_result: AgentHistoryList, recording_path: str) -> d
     video_files_mp4 = list(recording_dir_pathobj.glob("*.mp4"))
     
     actual_video_filename = None
+    converted_to_mp4 = False
+
     if video_files_webm:
-        actual_video_filename = video_files_webm[0].name
-        logger.info(f"Found video file: {actual_video_filename} in {recording_path}")
+        webm_file_path = video_files_webm[0]
+        mp4_file_path = webm_file_path.with_suffix(".mp4")
+        logger.info(f"Found webm video file: {webm_file_path.name}. Attempting conversion to {mp4_file_path.name}.")
+        if _convert_to_mp4(str(webm_file_path), str(mp4_file_path)):
+            actual_video_filename = mp4_file_path.name
+            converted_to_mp4 = True
+            # Optionally, remove the original .webm file if conversion is successful
+            # try:
+            #     webm_file_path.unlink()
+            #     logger.info(f"Removed original webm file: {webm_file_path.name}")
+            # except OSError as e:
+            #     logger.error(f"Error removing webm file {webm_file_path.name}: {e}")
+        else:
+            logger.warning(f"Conversion of {webm_file_path.name} to mp4 failed. Using original webm.")
+            actual_video_filename = webm_file_path.name
     elif video_files_mp4:
         actual_video_filename = video_files_mp4[0].name
-        logger.info(f"Found fallback video file (mp4): {actual_video_filename} in {recording_path}")
+        logger.info(f"Found mp4 video file: {actual_video_filename} in {recording_path}")
     else:
         logger.warning(f"No .webm or .mp4 video file found in {recording_path}")
 
@@ -180,6 +196,41 @@ def _process_history(history_result: AgentHistoryList, recording_path: str) -> d
         "recording_dir_absolute_path": recording_path,  # Full absolute path to the recording directory
         "actual_video_filename": actual_video_filename # Name of the video file, e.g., "xxxx.webm" or "video.mp4"
     }  
+  
+def _convert_to_mp4(input_path: str, output_path: str) -> bool:
+    """Converts a video file to MP4 format using ffmpeg."""
+    try:
+        # Basic ffmpeg command for conversion.
+        # -i: input file
+        # -c:v libx264: video codec
+        # -preset medium: encoding speed/quality trade-off
+        # -crf 23: constant rate factor (quality, lower is better, 18-28 is typical)
+        # -c:a aac: audio codec
+        # -b:a 128k: audio bitrate
+        # -y: overwrite output file if it exists
+        command = [
+            'ffmpeg', '-i', input_path,
+            '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
+            '-c:a', 'aac', '-b:a', '128k',
+            '-y', output_path
+        ]
+        logger.info(f"Executing ffmpeg command: {' '.join(command)}")
+        process = subprocess.run(command, capture_output=True, text=True, check=False)
+        
+        if process.returncode == 0:
+            logger.info(f"Successfully converted {Path(input_path).name} to {Path(output_path).name}")
+            return True
+        else:
+            logger.error(f"ffmpeg conversion failed for {Path(input_path).name}. Return code: {process.returncode}")
+            logger.error(f"ffmpeg stdout: {process.stdout}")
+            logger.error(f"ffmpeg stderr: {process.stderr}")
+            return False
+    except FileNotFoundError:
+        logger.error("ffmpeg not found. Please ensure ffmpeg is installed and in your system's PATH.")
+        return False
+    except Exception as e:
+        logger.error(f"An error occurred during ffmpeg conversion: {e}")
+        return False
   
 def _save_screenshot(history_item, step_index: int, output_path: Path) -> str | None:  
     """Save screenshot from history item and return filename if successful"""  
