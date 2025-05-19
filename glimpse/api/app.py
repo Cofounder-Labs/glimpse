@@ -171,6 +171,7 @@ class DemoStatus(BaseModel):
     artifact_path: Optional[str] = None  # Add new field for artifact path
     screenshots: Optional[List[str]] = None # Add new field for screenshots list
     interactions: Optional[List[Dict]] = None # Add new field for interactions data
+    recording_path: Optional[str] = None # New field for recording path
 
 class BoundingBox(BaseModel):
     x: float      # x-coordinate as percentage of page width (0.0 to 1.0)
@@ -239,6 +240,7 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
     """Background task to process the demo generation"""
     global ACTIVE_MOCK_MODE # Ensure we are using the global variable
     final_status = "failed" # Default to failed
+    agent_result = {} # Initialize agent_result
     try:
         job_store[job_id]["status"] = "processing"
         job_store[job_id]["progress"] = 0.1 # Initial progress
@@ -301,7 +303,8 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
                 current_root_url = "http://localhost:3000/"
 
         print(mode_message)
-        agent_result = await execute_agent(task_to_execute, current_root_url, browser_details=browser_details)
+        # Pass job_id to execute_agent
+        agent_result = await execute_agent(task_to_execute, current_root_url, job_id, browser_details=browser_details)
 
         final_status = "completed"
         job_update_payload = {
@@ -310,22 +313,31 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
             "completed_at": datetime.now()
         }
 
-        if ACTIVE_MOCK_MODE == 0: # Free Run mode
-            if agent_result.get("artifact_path") and agent_result.get("screenshots"):
+        # Consolidate agent result processing
+        if isinstance(agent_result, dict):
+            if agent_result.get("artifact_path"):
                 job_update_payload["artifact_path"] = agent_result["artifact_path"]
+            if agent_result.get("screenshots"):
                 job_update_payload["screenshots"] = agent_result["screenshots"]
-                logger.info(f"Free Run artifacts for job {job_id}: {agent_result['artifact_path']}, {len(agent_result['screenshots'])} screenshots")
-            else:
-                logger.warning(f"Free Run mode for job {job_id} completed but no artifact path or screenshots found in agent result.")
-            
-            # Also save interactions if present
             if agent_result.get("interactions"):
                 job_update_payload["interactions"] = agent_result["interactions"]
+            if agent_result.get("recording_path"):
+                job_update_payload["recording_path"] = agent_result["recording_path"]
+                logger.info(f"Recording for job {job_id} available in directory: {agent_result['recording_path']}")
+
+        # Specific logging for Free Run mode artifacts, if still desired
+        if ACTIVE_MOCK_MODE == 0: 
+            if agent_result.get("artifact_path") and agent_result.get("screenshots"):
+                logger.info(f"Free Run artifacts for job {job_id}: {agent_result['artifact_path']}, {len(agent_result['screenshots'])} screenshots")
+            # else:
+            #     logger.warning(f"Free Run mode for job {job_id} completed but no artifact path or screenshots found in agent result.")
+            if agent_result.get("interactions"):
                 logger.info(f"Free Run interactions for job {job_id}: {len(agent_result['interactions'])} interactions recorded.")
 
         job_store[job_id].update(job_update_payload)
 
     except Exception as e:
+        logger.error(f"Error processing job {job_id}: {e}", exc_info=True)
         job_store[job_id].update({
             "status": "failed", # Explicitly set failed on exception
             "progress": 0.0,
@@ -333,7 +345,7 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
             "completed_at": datetime.now()
         })
     finally:
-        await notify_job_completion(job_id, final_status)
+        await notify_job_completion(job_id, job_store.get(job_id, {}).get("status", final_status))
 
 @app.post("/generate-demo", response_model=DemoStatus)
 async def generate_demo(request: DemoRequest, background_tasks: BackgroundTasks):

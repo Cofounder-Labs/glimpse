@@ -1,6 +1,7 @@
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from browser_use import Agent, AgentHistoryList
-from browser_use.browser.browser import Browser, BrowserConfig, BrowserContextConfig
+from browser_use.browser.browser import Browser, BrowserConfig
+from browser_use.browser.context import BrowserContext, BrowserContextConfig
 import asyncio
 from dotenv import load_dotenv
 import os
@@ -16,13 +17,14 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-async def execute_agent(nl_task: str, root_url: str, browser_details: dict | None = None) -> dict:  
+async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_details: dict | None = None) -> dict:  
     """  
     Execute the browser agent with the given task and URL.  
     Saves screenshots and extracts bounding box information from interacted elements.  
+    Saves a recording of the session if configured.
     """  
     try:  
-        logger.debug(f"Starting task: {nl_task} at {root_url}")  
+        logger.debug(f"Starting task: {nl_task} at {root_url} for job_id: {job_id}")  
           
         # Initialize LLM - simplified with a helper function  
         llm = _get_llm()  
@@ -30,23 +32,37 @@ async def execute_agent(nl_task: str, root_url: str, browser_details: dict | Non
         # Get browser configuration  
         port, chrome_path = _validate_browser_details(browser_details)  
           
-        # Configure and initialize browser  
+        # Prepare recording directory
+        recording_base_dir = Path("recordings")
+        recording_save_dir = recording_base_dir / job_id
+        recording_save_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Recording will be saved to: {recording_save_dir.resolve()}")
+
+        # Configure browser context for recording and other settings
+        context_config = BrowserContextConfig(
+            highlight_elements=False,
+            save_recording_path=str(recording_save_dir)
+        )
+          
+        # Configure and initialize browser (without new_context_config as context is explicit)
         browser_config = BrowserConfig(  
-            chrome_instance_path=chrome_path,  
+            # chrome_instance_path=chrome_path,  
             headless=False,  
             disable_security=True,  
-            cdp_url=f"http://localhost:{port}",  
-            new_context_config=BrowserContextConfig(highlight_elements=False)  
+            # cdp_url=f"http://localhost:{port}"
         )  
           
-        custom_browser = Browser(config=browser_config)  
-        custom_browser.page = None  
+        browser_instance = Browser(config=browser_config)
           
-        # Initialize and run agent  
+        # Create a browser context with the recording configuration
+        recording_context = BrowserContext(browser=browser_instance, config=context_config)
+          
+        # Initialize and run agent with the explicit browser_context
         agent = Agent(  
             task=nl_task,  
             llm=llm,  
-            browser=custom_browser,  
+            browser_context=recording_context,
+            browser=browser_instance,
             use_vision=False,  
             max_failures=2,  
         )  
@@ -54,7 +70,7 @@ async def execute_agent(nl_task: str, root_url: str, browser_details: dict | Non
         history_result = await agent.run()  
           
         # Process history to extract screenshots and interaction data  
-        return _process_history(history_result)  
+        return _process_history(history_result, str(recording_save_dir))  
           
     except Exception as e:  
         logger.error(f"Error running browser agent: {str(e)}")  
@@ -98,7 +114,7 @@ def _validate_browser_details(browser_details: dict | None) -> tuple[int, str]:
       
     return port, chrome_path  
   
-def _process_history(history_result: AgentHistoryList) -> dict:  
+def _process_history(history_result: AgentHistoryList, recording_path: str) -> dict:  
     """Process agent history to extract screenshots and interaction data"""  
     screenshots_saved = []  
     interactions_data = []  
@@ -111,7 +127,8 @@ def _process_history(history_result: AgentHistoryList) -> dict:
             "steps": history_result,  
             "artifact_path": "",  
             "screenshots": [],  
-            "interactions": []  
+            "interactions": [],  
+            "recording_path": recording_path  
         }  
       
     # Create artifact folder  
@@ -136,7 +153,8 @@ def _process_history(history_result: AgentHistoryList) -> dict:
         "steps": history_result,  
         "artifact_path": f"run_artifacts/{run_artifact_folder_name}" if run_artifact_folder_name else "",  
         "screenshots": screenshots_saved,  
-        "interactions": interactions_data  
+        "interactions": interactions_data,  
+        "recording_path": recording_path  
     }  
   
 def _save_screenshot(history_item, step_index: int, output_path: Path) -> str | None:  
