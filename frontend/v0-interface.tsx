@@ -238,69 +238,6 @@ const PublishedView = ({
   )
 }
 
-// EditorNavBar component
-const EditorNavBar = ({ handlePublish }: { handlePublish: () => void }) => (
-  <div className="border-b flex items-center justify-between px-6 py-3">
-    <div className="flex items-center gap-4">
-      <button className="p-1 text-gray-600 hover:text-gray-900">
-        <ArrowLeft className="w-5 h-5" />
-      </button>
-      <div className="font-medium">browser-use.com</div>
-    </div>
-
-    <div className="flex items-center gap-2">
-      <div className="border-b-2 border-black px-4 py-2 text-black font-medium">Edit</div>
-      <div className="px-4 py-2 text-gray-600 hover:text-gray-900 cursor-pointer">Preview</div>
-    </div>
-
-    <div className="flex items-center gap-3">
-      <button onClick={handlePublish} className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800">
-        Publish
-      </button>
-      <button className="px-3 py-1 border rounded-lg text-gray-600 hover:bg-gray-50">Share</button>
-      <button className="p-1 text-gray-600 hover:text-gray-900">
-        <MoreHorizontal className="w-5 h-5" />
-      </button>
-    </div>
-  </div>
-)
-
-// SlidesSidebar component
-const SlidesSidebar = ({
-  slides,
-  activeSlide,
-  setActiveSlide,
-}: {
-  slides: { id: number; title: string; content: string }[]
-  activeSlide: number
-  setActiveSlide: (index: number) => void
-}) => (
-  <div className="w-[172px] border-r overflow-y-auto p-3 bg-white">
-    {slides.map((slide, index) => (
-      <div
-        key={slide.id}
-        className={`mb-3 p-1 rounded-lg cursor-pointer border ${
-          activeSlide === index ? "border-black" : "border-gray-200"
-        } hover:border-gray-400 transition-colors`}
-        onClick={() => setActiveSlide(index)}
-      >
-        <div className="aspect-video bg-white rounded-md flex items-center justify-center relative overflow-hidden">
-          <span className="absolute bottom-1 left-1 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center border z-10">
-            {index + 1}
-          </span>
-          <Image
-            src={slide.content}
-            alt={slide.title}
-            layout="fill"
-            objectFit="contain"
-            className="absolute inset-0 w-full h-full"
-          />
-        </div>
-      </div>
-    ))}
-  </div>
-)
-
 // SlideEditor component - Accept bgColor prop
 const SlideEditor = ({ slide, bgColor }: { slide: { id: number; title: string; content: string } | null; bgColor: string }) => (
   // Outer container: provides background, centers content, allows scrolling if needed
@@ -326,20 +263,6 @@ const SlideEditor = ({ slide, bgColor }: { slide: { id: number; title: string; c
 )
 
 // ChatInterface component
-const ChatInterface = () => (
-  <div className="p-4 border-t">
-    <textarea
-      placeholder="Ask Glimpse to edit this slide..."
-      className="w-full p-3 border rounded-lg outline-none text-sm resize-none focus:ring-1 focus:ring-black"
-      rows={2}
-    />
-    <div className="flex justify-end mt-2">
-      <button type="button" className="px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-colors">
-        Generate
-      </button>
-    </div>
-  </div>
-)
 
 // EditorView component
 const EditorView = ({
@@ -376,16 +299,10 @@ const EditorView = ({
           <div className="font-medium">browser-use.com</div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="border-b-2 border-black px-4 py-2 text-black font-medium">Edit</div>
-          <div className="px-4 py-2 text-gray-600 hover:text-gray-900 cursor-pointer">Preview</div>
-        </div>
-
         <div className="flex items-center gap-3">
           <button onClick={handlePublish} className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800">
             Publish
           </button>
-          <button className="px-3 py-1 border rounded-lg text-gray-600 hover:bg-gray-50">Share</button>
           <button className="p-1 text-gray-600 hover:text-gray-900">
             <MoreHorizontal className="w-5 h-5" />
           </button>
@@ -1235,16 +1152,11 @@ const VideoEditorView = ({
           <div className="font-medium">browser-use.com</div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="border-b-2 border-black px-4 py-2 text-black font-medium">Edit</div>
-          <div className="px-4 py-2 text-gray-600 hover:text-gray-900 cursor-pointer">Preview</div>
-        </div>
 
         <div className="flex items-center gap-3">
           <button onClick={handlePublish} className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800">
             Publish
           </button>
-          <button className="px-3 py-1 border rounded-lg text-gray-600 hover:bg-gray-50">Share</button>
           <button className="p-1 text-gray-600 hover:text-gray-900">
             <MoreHorizontal className="w-5 h-5" />
           </button>
