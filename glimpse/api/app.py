@@ -12,6 +12,7 @@ import subprocess
 import time
 import requests # Added for launch_chrome_with_debugging
 import logging
+from fastapi.staticfiles import StaticFiles # Added for serving static files
 
 # Set up logging if not already configured at a higher level
 logger = logging.getLogger(__name__)
@@ -35,6 +36,16 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods (GET, POST, OPTIONS, etc.)
     allow_headers=["*"],  # Allows all headers
 )
+
+# Mount static files directory for recordings
+# This assumes 'recordings' directory is at the same level as the 'glimpse' directory (project root)
+# If glimpse/api/app.py is run from project_root, then Path("recordings").resolve() works.
+# If run from glimpse/api, then Path("../recordings").resolve() might be needed or an absolute path.
+# For simplicity, assuming project_root/recordings structure and app is run from project_root.
+recordings_dir = Path(__file__).resolve().parent.parent.parent / "recordings"
+if not recordings_dir.exists():
+    recordings_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/recordings", StaticFiles(directory=recordings_dir), name="recordings")
 
 # In-memory job store and WebSocket connections
 job_store: Dict[str, Dict] = {}
@@ -321,9 +332,21 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
                 job_update_payload["screenshots"] = agent_result["screenshots"]
             if agent_result.get("interactions"):
                 job_update_payload["interactions"] = agent_result["interactions"]
-            if agent_result.get("recording_path"):
-                job_update_payload["recording_path"] = agent_result["recording_path"]
-                logger.info(f"Recording for job {job_id} available in directory: {agent_result['recording_path']}")
+            
+            # Handle recording path using new keys from agent
+            recording_dir_abs_path = agent_result.get("recording_dir_absolute_path")
+            actual_video_filename = agent_result.get("actual_video_filename")
+
+            if recording_dir_abs_path and actual_video_filename:
+                # The job_specific_part for the URL is the name of the job's recording directory
+                job_specific_folder_name = Path(recording_dir_abs_path).name 
+                video_url = f"/recordings/{job_specific_folder_name}/{actual_video_filename}"
+                job_update_payload["recording_path"] = video_url # This key is used by DemoStatus and frontend
+                logger.info(f"Recording for job {job_id} available at URL: {video_url}")
+            elif recording_dir_abs_path:
+                # If we have the dir but no specific file, log it. Frontend might not get a video.
+                logger.warning(f"Recording directory for job {job_id} exists at {recording_dir_abs_path}, but no video filename was found by agent.")
+            # else: No recording path or filename provided by agent
 
         # Specific logging for Free Run mode artifacts, if still desired
         if ACTIVE_MOCK_MODE == 0: 

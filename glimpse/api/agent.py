@@ -32,8 +32,14 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
         # Get browser configuration  
         port, chrome_path = _validate_browser_details(browser_details)  
           
-        # Prepare recording directory
-        recording_base_dir = Path("recordings")
+        # Prepare recording directory using absolute path
+        # Assumes agent.py is in glimpse/api/agent.py
+        # Path(__file__).resolve() -> .../glimpse/glimpse/api/agent.py
+        # .parent -> .../glimpse/glimpse/api
+        # .parent.parent -> .../glimpse/glimpse
+        # .parent.parent.parent -> .../glimpse (project root)
+        project_root_dir = Path(__file__).resolve().parent.parent.parent
+        recording_base_dir = project_root_dir / "recordings"
         recording_save_dir = recording_base_dir / job_id
         recording_save_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Recording will be saved to: {recording_save_dir.resolve()}")
@@ -71,7 +77,7 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
         history_result = await agent.run()  
           
         # Process history to extract screenshots and interaction data  
-        return _process_history(history_result, str(recording_save_dir))  
+        return _process_history(history_result, str(recording_save_dir.resolve()))  
           
     except Exception as e:  
         logger.error(f"Error running browser agent: {str(e)}")  
@@ -129,7 +135,8 @@ def _process_history(history_result: AgentHistoryList, recording_path: str) -> d
             "artifact_path": "",  
             "screenshots": [],  
             "interactions": [],  
-            "recording_path": recording_path  
+            "recording_dir_absolute_path": recording_path, # Keep full path to dir
+            "actual_video_filename": None # No video file found
         }  
       
     # Create artifact folder  
@@ -150,12 +157,28 @@ def _process_history(history_result: AgentHistoryList, recording_path: str) -> d
         item_interactions = _extract_interactions(history_item, i)  
         interactions_data.extend(item_interactions)  
       
+    # Discover the actual video file (.webm or .mp4)
+    recording_dir_pathobj = Path(recording_path) # recording_path is absolute dir path
+    video_files_webm = list(recording_dir_pathobj.glob("*.webm"))
+    video_files_mp4 = list(recording_dir_pathobj.glob("*.mp4"))
+    
+    actual_video_filename = None
+    if video_files_webm:
+        actual_video_filename = video_files_webm[0].name
+        logger.info(f"Found video file: {actual_video_filename} in {recording_path}")
+    elif video_files_mp4:
+        actual_video_filename = video_files_mp4[0].name
+        logger.info(f"Found fallback video file (mp4): {actual_video_filename} in {recording_path}")
+    else:
+        logger.warning(f"No .webm or .mp4 video file found in {recording_path}")
+
     return {  
         "steps": history_result,  
         "artifact_path": f"run_artifacts/{run_artifact_folder_name}" if run_artifact_folder_name else "",  
         "screenshots": screenshots_saved,  
         "interactions": interactions_data,  
-        "recording_path": recording_path  
+        "recording_dir_absolute_path": recording_path,  # Full absolute path to the recording directory
+        "actual_video_filename": actual_video_filename # Name of the video file, e.g., "xxxx.webm" or "video.mp4"
     }  
   
 def _save_screenshot(history_item, step_index: int, output_path: Path) -> str | None:  

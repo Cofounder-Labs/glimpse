@@ -792,6 +792,7 @@ export default function V0Interface() {
   const [screenshotsList, setScreenshotsList] = useState<string[]>([])
   const [demoType, setDemoType] = useState<"video" | "screenshot">("video")
   const [intendedEditorType, setIntendedEditorType] = useState<"video" | "screenshot">("video")
+  const [recordingUrl, setRecordingUrl] = useState<string | null>(null)
 
   // Define teams data here with imageCount
   const teams: Team[] = [
@@ -975,7 +976,12 @@ export default function V0Interface() {
                         setArtifactPath(jobDetails.artifact_path);
                         setScreenshotsList(jobDetails.screenshots);
                         console.log("Free Run artifacts loaded via fetchJobDetails:", jobDetails.artifact_path, jobDetails.screenshots);
-                        // setCurrentPage(PageState.Editor) will be handled by the new useEffect
+                        // If it's a video demo, also set the recording URL from jobDetails
+                        if (intendedEditorType === "video" && jobDetails.recording_path) {
+                           setRecordingUrl(jobDetails.recording_path);
+                           console.log("Free Run recording URL set:", jobDetails.recording_path);
+                        }
+                        // Transition will be handled by the artifact loaded useEffect
                       } else {
                         console.error("Free Run artifacts condition failed. artifact_path:", jobDetails.artifact_path, "screenshots:", jobDetails.screenshots, "screenshots.length:", jobDetails.screenshots ? jobDetails.screenshots.length : 'undefined');
                         setCurrentPage(PageState.Home); // Go home if artifacts are missing
@@ -996,6 +1002,10 @@ export default function V0Interface() {
                 // For non-Free Run modes, transition directly
                 console.log("Job completed for non-Free Run. Transitioning based on intendedEditorType:", intendedEditorType);
                 if (intendedEditorType === "video") {
+                  if (message.recording_path) {
+                    setRecordingUrl(message.recording_path as string);
+                    console.log("Recording URL set for video editor:", message.recording_path);
+                  }
                   setCurrentPage(PageState.VideoEditor);
                 } else {
                   setCurrentPage(PageState.Editor);
@@ -1064,6 +1074,7 @@ export default function V0Interface() {
       setArtifactPath(null); // Reset artifacts
       setScreenshotsList([]); // Reset artifacts
       setIntendedEditorType(demoType); // Store the selected demo type for editor routing
+      setRecordingUrl(null); // Reset recording URL on new submission
 
       // Special handling for Databricks team
       if (selectedTeam.id === "databricks") { 
@@ -1135,8 +1146,10 @@ export default function V0Interface() {
 // VideoEditorView component
 const VideoEditorView = ({
   handlePublish,
+  recordingUrl,
 }: {
   handlePublish: () => void
+  recordingUrl: string | null;
 }) => {
   const [activeTab, setActiveTab] = useState<"Wallpaper" | "Gradient" | "Color" | "Image">("Wallpaper")
   const [wallpaperType, setWallpaperType] = useState<"macOS" | "Spring" | "Sunset" | "Radia">("macOS")
@@ -1167,31 +1180,27 @@ const VideoEditorView = ({
       <div className="flex flex-1 overflow-hidden">
         {/* Video Preview Area - Matches EditorView center area */}
         <div className="flex-1 bg-gradient-to-b from-purple-600 to-purple-200 flex items-center justify-center p-4 overflow-auto">
-          {/* Browser Window Preview */}
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[85vh] aspect-video flex flex-col overflow-hidden">
-            {/* Browser Top Bar */}
-            <div className="bg-gray-100 h-8 flex items-center px-3 gap-1.5 border-b">
-              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            </div>
-            {/* Browser Content Area */}
-            <div className="flex-1 bg-white flex items-center justify-center">
-              <div className="text-center text-gray-600">
-                <Monitor size={64} className="mx-auto mb-4 text-gray-400" />
-                <p className="text-lg font-medium">Interactive Browser Use</p>
-                <p className="text-sm mb-4 text-gray-500">What can I help you with?</p>
-                <input
-                  type="text"
-                  placeholder="Describe the goal, e.g., Log into my bank..."
-                  className="bg-gray-50 text-gray-700 placeholder-gray-400 px-3 py-2 rounded-md text-xs w-80 mb-2 border"
-                />
-                <button className="bg-black hover:bg-gray-800 text-white px-6 py-2 rounded-md text-sm">
-                  Start Session
-                </button>
+          {/* Browser Window Preview or Video Player */}
+          {recordingUrl ? (
+            <video src={recordingUrl} controls className="w-full max-w-4xl max-h-[85vh] rounded-lg shadow-lg aspect-video bg-black" />
+          ) : (
+            <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[85vh] aspect-video flex flex-col overflow-hidden">
+              {/* Browser Top Bar */}
+              <div className="bg-gray-100 h-8 flex items-center px-3 gap-1.5 border-b">
+                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              </div>
+              {/* Browser Content Area - Placeholder when no video */}
+              <div className="flex-1 bg-white flex items-center justify-center">
+                <div className="text-center text-gray-600">
+                  <Monitor size={64} className="mx-auto mb-4 text-gray-400" />
+                  <p className="text-lg font-medium">Video Not Available</p>
+                  <p className="text-sm mb-4 text-gray-500">The video recording is being processed or is unavailable.</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Right Sidebar - Matches EditorView controls sidebar */}
@@ -1409,11 +1418,11 @@ const VideoEditorView = ({
     )
   }
 
-  if (currentPage === PageState.VideoEditor) { // Added new condition for VideoEditor
+  if (currentPage === PageState.VideoEditor) { 
     return (
       <VideoEditorView
         handlePublish={handlePublish}
-        // Pass other necessary props here
+        recordingUrl={recordingUrl}
       />
     );
   }
