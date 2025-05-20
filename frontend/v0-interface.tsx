@@ -28,7 +28,7 @@ import {
   ZoomOut,
   ZoomIn,
 } from "lucide-react"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 
 // LoadingIndicator component
 const LoadingIndicator = ({ loadingText, loadingDots }: { loadingText: string; loadingDots: string }) => (
@@ -1188,6 +1188,135 @@ const VideoEditorView = ({
   const [activeTab, setActiveTab] = useState<"Wallpaper" | "Gradient" | "Color" | "Image">("Wallpaper")
   const [wallpaperType, setWallpaperType] = useState<"macOS" | "Spring" | "Sunset" | "Radia">("macOS")
 
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const timelineRef = useRef<HTMLDivElement>(null)
+  const playheadRef = useRef<HTMLDivElement>(null)
+
+  const [videoDuration, setVideoDuration] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [isScrubbing, setIsScrubbing] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
+
+  const formatTime = (timeInSeconds: number): string => {
+    const minutes = Math.floor(timeInSeconds / 60)
+    const seconds = Math.floor(timeInSeconds % 60)
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`
+  }
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (video) {
+      const handleLoadedMetadata = () => {
+        setVideoDuration(video.duration)
+      }
+      const handleTimeUpdate = () => {
+        setCurrentTime(video.currentTime)
+      }
+      const handlePlay = () => setIsPlaying(true);
+      const handlePause = () => setIsPlaying(false);
+      const handleEnded = () => setIsPlaying(false);
+
+
+      video.addEventListener("loadedmetadata", handleLoadedMetadata)
+      video.addEventListener("timeupdate", handleTimeUpdate)
+      video.addEventListener("play", handlePlay);
+      video.addEventListener("pause", handlePause);
+      video.addEventListener("ended", handleEnded);
+
+      // Set initial duration if already loaded (e.g. on hot reload)
+      if (video.readyState >= 1) { // HAVE_METADATA
+          handleLoadedMetadata();
+      }
+      // Set initial current time
+      setCurrentTime(video.currentTime);
+      setIsPlaying(!video.paused);
+
+
+      return () => {
+        video.removeEventListener("loadedmetadata", handleLoadedMetadata)
+        video.removeEventListener("timeupdate", handleTimeUpdate)
+        video.removeEventListener("play", handlePlay);
+        video.removeEventListener("pause", handlePause);
+        video.removeEventListener("ended", handleEnded);
+      }
+    }
+  }, [recordingUrl]) // Re-run if recordingUrl changes
+
+  useEffect(() => {
+    if (playheadRef.current && videoDuration > 0) {
+      const percentage = (currentTime / videoDuration) * 100
+      playheadRef.current.style.left = `${percentage}%`
+    } else if (playheadRef.current) {
+      playheadRef.current.style.left = `0%`
+    }
+  }, [currentTime, videoDuration])
+
+  const handleTimelineInteraction = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!timelineRef.current || !videoRef.current || videoDuration === 0) return
+
+    const timelineRect = timelineRef.current.getBoundingClientRect()
+    // Calculate click position relative to the timeline element
+    // clientX is the mouse position in the viewport
+    // timelineRect.left is the timeline's left edge position in the viewport
+    const clickX = event.clientX - timelineRect.left
+    let newTimeFraction = clickX / timelineRect.width
+
+    // Clamp the fraction between 0 and 1
+    newTimeFraction = Math.max(0, Math.min(1, newTimeFraction))
+
+    const newTime = newTimeFraction * videoDuration
+    videoRef.current.currentTime = newTime
+    setCurrentTime(newTime) // Immediately update currentTime state for responsiveness
+  }
+
+  const handleTimelineMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    setIsScrubbing(true)
+    handleTimelineInteraction(event) // Seek to initial mousedown position
+    // Optionally pause video while scrubbing if it's playing
+    // if (isPlaying) videoRef.current?.pause();
+  }
+
+  const handleTimelineMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (isScrubbing) {
+      handleTimelineInteraction(event)
+    }
+  }
+
+  const handleTimelineMouseUp = () => {
+    if (isScrubbing) {
+      setIsScrubbing(false)
+      // Optionally resume video if it was paused for scrubbing
+      // if (wasPlayingBeforeScrub) videoRef.current?.play();
+    }
+  }
+  
+  // Add mouseleave from timeline to also stop scrubbing
+  const handleTimelineMouseLeave = () => {
+    if (isScrubbing) {
+        setIsScrubbing(false);
+    }
+  };
+
+  const togglePlayPause = () => {
+    if (videoRef.current) {
+      if (videoRef.current.paused || videoRef.current.ended) {
+        videoRef.current.play().catch(error => console.error("Error trying to play video:", error));
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }
+
+  const skipTime = (amount: number) => {
+    if (videoRef.current) {
+        let newTime = videoRef.current.currentTime + amount;
+        newTime = Math.max(0, Math.min(videoDuration, newTime)); // Clamp
+        videoRef.current.currentTime = newTime;
+        setCurrentTime(newTime);
+    }
+  };
+
+
   return (
     <div className="h-screen flex flex-col bg-white">
       {/* Top Bar - Matches EditorView navbar */}
@@ -1216,7 +1345,19 @@ const VideoEditorView = ({
         <div className="flex-1 bg-gradient-to-b from-purple-600 to-purple-200 flex items-center justify-center p-4 overflow-auto">
           {/* Browser Window Preview or Video Player */}
           {recordingUrl ? (
-            <video src={recordingUrl} controls className="w-full max-w-4xl max-h-[85vh] rounded-lg shadow-lg aspect-video bg-black" />
+            <video 
+              ref={videoRef}
+              src={recordingUrl} 
+              // Remove 'controls' to implement custom controls
+              // controls 
+              className="w-full max-w-4xl max-h-[85vh] rounded-lg shadow-lg aspect-video bg-black" 
+              onDoubleClick={togglePlayPause} // Allow double click to play/pause
+              onClick={(e) => { // Prevent click from propagating if we want to use it for something else
+                e.stopPropagation();
+                // Maybe single click also toggles play/pause if not double click
+                // togglePlayPause(); 
+              }}
+            />
           ) : (
             <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[85vh] aspect-video flex flex-col overflow-hidden">
               {/* Browser Top Bar */}
@@ -1400,24 +1541,40 @@ const VideoEditorView = ({
           <ChevronDown size={16} className="text-gray-600" />
         </div>
         {/* Timeline controls and track */}
-        <div className="flex-1 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-500 relative border">
-          <div className="absolute left-2 top-1/2 -translate-y-1/2 w-1 h-6 bg-black rounded-full"></div>{" "}
-          {/* Playhead */}
-          Timeline Track
+        <div 
+          ref={timelineRef}
+          className="flex-1 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-500 relative border cursor-pointer"
+          onMouseDown={handleTimelineMouseDown}
+          onMouseMove={handleTimelineMouseMove}
+          onMouseUp={handleTimelineMouseUp}
+          onMouseLeave={handleTimelineMouseLeave} // Stop scrubbing if mouse leaves timeline
+          onClick={(e) => { // Handle simple click to seek for better UX if not dragging
+            if (!isScrubbing) { // Only if not part of a drag
+                handleTimelineInteraction(e);
+            }
+          }}
+        >
+          <div 
+            ref={playheadRef}
+            className="absolute top-1/2 -translate-y-1/2 w-1 h-6 bg-black rounded-full pointer-events-none" /* Added pointer-events-none */
+          ></div>
+          {/* Timeline Track - Text removed for clarity, or can be kept if styled appropriately */}
         </div>
         <div className="flex items-center justify-between mt-1">
           <div className="flex items-center gap-2">
-            <button className="p-1 hover:bg-gray-100 rounded text-gray-600">
+            <button onClick={() => skipTime(-5)} className="p-1 hover:bg-gray-100 rounded text-gray-600">
               <SkipBack size={16} />
             </button>
-            <button className="p-1 hover:bg-gray-100 rounded text-gray-600">
-              <Play size={16} />
+            <button onClick={togglePlayPause} className="p-1 hover:bg-gray-100 rounded text-gray-600">
+              {isPlaying ? <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> : <Play size={16} />}
             </button>
-            <button className="p-1 hover:bg-gray-100 rounded text-gray-600">
+            <button onClick={() => skipTime(5)} className="p-1 hover:bg-gray-100 rounded text-gray-600">
               <SkipForward size={16} />
             </button>
           </div>
-          <div className="text-xs text-gray-600">0:00 / 0:30</div>
+          <div className="text-xs text-gray-600 tabular-nums"> {/* Added tabular-nums for consistent width */}
+            {formatTime(currentTime)} / {formatTime(videoDuration)}
+          </div>
           <div className="flex items-center gap-2">
             <button className="p-1 hover:bg-gray-100 rounded text-gray-600">
               <ZoomOut size={16} />
