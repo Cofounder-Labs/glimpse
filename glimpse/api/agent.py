@@ -1,3 +1,21 @@
+import sys
+import os
+
+# Add the local browser-use directory to the Python path
+# Assuming 'browser-use' is a folder in the current workspace root
+local_browser_use_path = os.path.join(os.path.dirname(__file__), 'browser-use')
+if local_browser_use_path not in sys.path:
+    sys.path.insert(0, local_browser_use_path)
+
+# Add the parent directory of 'browser-use' to the Python path
+# This is often needed if 'browser-use' itself contains a package structure
+# that expects its parent to be in the path.
+parent_dir = os.path.dirname(local_browser_use_path)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+
+
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from browser_use import Agent, AgentHistoryList
 from browser_use.browser.browser import Browser, BrowserConfig
