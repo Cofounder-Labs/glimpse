@@ -326,7 +326,8 @@ export default function V0Interface() {
           },
           body: JSON.stringify({
             nl_task: inputText,
-            root_url: selectedTeam.id === "free-run" ? "" : "google.com", 
+            root_url: selectedTeam.id === "free-run" ? "" : "google.com",
+            demo_type: demoType,
           }),
         })
 

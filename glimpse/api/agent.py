@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_details: dict | None = None) -> dict:  
+async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_details: dict | None = None, demo_type: str = "video") -> dict:  
     """  
     Execute the browser agent with the given task and URL.  
     Saves screenshots and extracts bounding box information from interacted elements.  
@@ -55,28 +55,38 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
         # Get browser configuration  
         port, chrome_path = _validate_browser_details(browser_details)  
           
-        # Prepare recording directory using absolute path
-        # Assumes agent.py is in glimpse/api/agent.py
-        # Path(__file__).resolve() -> .../glimpse/glimpse/api/agent.py
-        # .parent -> .../glimpse/glimpse/api
-        # .parent.parent -> .../glimpse/glimpse
-        # .parent.parent.parent -> .../glimpse (project root)
-        project_root_dir = Path(__file__).resolve().parent.parent.parent
-        recording_base_dir = project_root_dir / "recordings"
-        recording_save_dir = recording_base_dir / job_id
-        recording_save_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Recording will be saved to: {recording_save_dir.resolve()}")
+        # Conditionally prepare recording directory based on demo_type
+        recording_save_dir = None
+        if demo_type == "video":
+            # Assumes agent.py is in glimpse/api/agent.py
+            # Path(__file__).resolve() -> .../glimpse/glimpse/api/agent.py
+            # .parent -> .../glimpse/glimpse/api
+            # .parent.parent -> .../glimpse/glimpse
+            # .parent.parent.parent -> .../glimpse (project root)
+            project_root_dir = Path(__file__).resolve().parent.parent.parent
+            recording_base_dir = project_root_dir / "recordings"
+            recording_save_dir = recording_base_dir / job_id
+            recording_save_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Video mode: Recording will be saved to: {recording_save_dir.resolve()}")
+        else:
+            logger.info(f"Screenshot mode: No recording will be created")
 
-        human_profile = BrowserProfile(
-            use_human_like_mouse=True,
-            mouse_movement_pattern="human",
-            min_mouse_movement_time=0.3,
-            max_mouse_movement_time=1.0,
-            mouse_speed_variation=0.4,
-            show_visual_cursor=True,  # Enable visual cursor
-            highlight_elements=False,  # Add the context configuration here
-            record_video_dir=str(recording_save_dir),
-        )
+        # Configure browser profile based on demo_type
+        profile_kwargs = {
+            "use_human_like_mouse": True,
+            "mouse_movement_pattern": "human",
+            "min_mouse_movement_time": 0.3,
+            "max_mouse_movement_time": 1.0,
+            "mouse_speed_variation": 0.4,
+            "show_visual_cursor": True,  # Enable visual cursor
+            "highlight_elements": False,  # Add the context configuration here
+        }
+        
+        # Only add recording directory if in video mode
+        if demo_type == "video" and recording_save_dir:
+            profile_kwargs["record_video_dir"] = str(recording_save_dir)
+        
+        human_profile = BrowserProfile(**profile_kwargs)
 
         human_session = BrowserSession(
             # chrome_instance_path=chrome_path,  
@@ -99,7 +109,8 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
         history_result = await agent.run()  
           
         # Process history to extract screenshots and interaction data  
-        return _process_history(history_result, str(recording_save_dir.resolve()))  
+        recording_path = str(recording_save_dir.resolve()) if recording_save_dir else ""
+        return _process_history(history_result, recording_path, demo_type)  
           
     except Exception as e:  
         logger.error(f"Error running browser agent: {str(e)}")  
@@ -143,49 +154,53 @@ def _validate_browser_details(browser_details: dict | None) -> tuple[int, str]:
       
     return port, chrome_path  
   
-def _process_history(history_result: AgentHistoryList, recording_path: str) -> dict:  
+def _process_history(history_result: AgentHistoryList, recording_path: str, demo_type: str = "video") -> dict:  
     """Process agent history to extract screenshots and interaction data"""  
     screenshots_saved = []  
     interactions_data = []  
     run_artifact_folder_name = ""  
     base_artifacts_path = Path("frontend/public/run_artifacts")  
       
-    # Discover the actual video file (.webm or .mp4) FIRST
+    # Discover the actual video file (.webm or .mp4) FIRST, but only in video mode
     actual_video_filename = None # Initialize
-    recording_dir_pathobj = Path(recording_path) # recording_path is absolute dir path
-    logger.info(f"Looking for video files in directory: {recording_dir_pathobj.resolve()}")
-    logger.info(f"Absolute recording path provided to _process_history: {recording_path}")
-
-    video_files_webm = list(recording_dir_pathobj.glob("*.webm"))
-    logger.info(f"Found .webm files: {video_files_webm} using glob pattern '*.webm'")
     
-    video_files_mp4 = list(recording_dir_pathobj.glob("*.mp4"))
-    logger.info(f"Found .mp4 files: {video_files_mp4} using glob pattern '*.mp4'")
-    
-    converted_to_mp4 = False
+    if demo_type == "video" and recording_path:
+        recording_dir_pathobj = Path(recording_path) # recording_path is absolute dir path
+        logger.info(f"Video mode: Looking for video files in directory: {recording_dir_pathobj.resolve()}")
+        logger.info(f"Absolute recording path provided to _process_history: {recording_path}")
 
-    if video_files_webm:
-        webm_file_path = video_files_webm[0]
-        mp4_file_path = webm_file_path.with_suffix(".mp4")
-        logger.info(f"Found webm video file: {webm_file_path.name}. Attempting conversion to {mp4_file_path.name}.")
-        if _convert_to_mp4(str(webm_file_path), str(mp4_file_path)):
-            actual_video_filename = mp4_file_path.name
-            converted_to_mp4 = True
-            logger.info(f"Successfully converted {webm_file_path.name} to {actual_video_filename}. It will be used.")
-            # Optionally, remove the original .webm file if conversion is successful
-            # try:
-            #     webm_file_path.unlink()
-            #     logger.info(f"Removed original webm file: {webm_file_path.name}")
-            # except OSError as e:
-            #     logger.error(f"Error removing webm file {webm_file_path.name}: {e}")
+        video_files_webm = list(recording_dir_pathobj.glob("*.webm"))
+        logger.info(f"Found .webm files: {video_files_webm} using glob pattern '*.webm'")
+        
+        video_files_mp4 = list(recording_dir_pathobj.glob("*.mp4"))
+        logger.info(f"Found .mp4 files: {video_files_mp4} using glob pattern '*.mp4'")
+        
+        converted_to_mp4 = False
+
+        if video_files_webm:
+            webm_file_path = video_files_webm[0]
+            mp4_file_path = webm_file_path.with_suffix(".mp4")
+            logger.info(f"Found webm video file: {webm_file_path.name}. Attempting conversion to {mp4_file_path.name}.")
+            if _convert_to_mp4(str(webm_file_path), str(mp4_file_path)):
+                actual_video_filename = mp4_file_path.name
+                converted_to_mp4 = True
+                logger.info(f"Successfully converted {webm_file_path.name} to {actual_video_filename}. It will be used.")
+                # Optionally, remove the original .webm file if conversion is successful
+                # try:
+                #     webm_file_path.unlink()
+                #     logger.info(f"Removed original webm file: {webm_file_path.name}")
+                # except OSError as e:
+                #     logger.error(f"Error removing webm file {webm_file_path.name}: {e}")
+            else:
+                logger.warning(f"Conversion of {webm_file_path.name} to mp4 failed. Using original .webm file: {webm_file_path.name}")
+                actual_video_filename = webm_file_path.name
+        elif video_files_mp4:
+            actual_video_filename = video_files_mp4[0].name
+            logger.info(f"No .webm files found. Found and using .mp4 video file: {actual_video_filename} in {recording_path}")
         else:
-            logger.warning(f"Conversion of {webm_file_path.name} to mp4 failed. Using original .webm file: {webm_file_path.name}")
-            actual_video_filename = webm_file_path.name
-    elif video_files_mp4:
-        actual_video_filename = video_files_mp4[0].name
-        logger.info(f"No .webm files found. Found and using .mp4 video file: {actual_video_filename} in {recording_path}")
+            logger.warning(f"No .webm or .mp4 video file found in {recording_path}. 'actual_video_filename' will be None.")
     else:
-        logger.warning(f"No .webm or .mp4 video file found in {recording_path}. 'actual_video_filename' will be None.")
+        logger.info(f"Screenshot mode: Skipping video file discovery")
 
     # Now, process history items if they exist
     if not hasattr(history_result, 'history') or not isinstance(history_result.history, list) or not history_result.history:  
@@ -196,7 +211,7 @@ def _process_history(history_result: AgentHistoryList, recording_path: str) -> d
             "artifact_path": "",  
             "screenshots": [],  
             "interactions": [],  
-            "recording_dir_absolute_path": recording_path, 
+            "recording_dir_absolute_path": recording_path if demo_type == "video" else "", 
             "actual_video_filename": actual_video_filename # This will now have a value if a video was found
         }  
       
@@ -223,7 +238,7 @@ def _process_history(history_result: AgentHistoryList, recording_path: str) -> d
         "artifact_path": f"run_artifacts/{run_artifact_folder_name}" if run_artifact_folder_name else "",  
         "screenshots": screenshots_saved,  
         "interactions": interactions_data,  
-        "recording_dir_absolute_path": recording_path,  # Full absolute path to the recording directory
+        "recording_dir_absolute_path": recording_path if demo_type == "video" else "",  # Full absolute path to the recording directory only in video mode
         "actual_video_filename": actual_video_filename # Name of the video file, e.g., "xxxx.webm" or "video.mp4"
     }  
   

@@ -167,6 +167,7 @@ async def startup_event():
 class DemoRequest(BaseModel):
     nl_task: str
     root_url: str
+    demo_type: str = "video"  # "video" or "screenshot"
 
 class SetMockModeRequest(BaseModel):
     mock_mode: Optional[int] # e.g., 1 for MOCK_TASK_1, 2 for MOCK_TASK_2, etc. None to disable.
@@ -247,7 +248,7 @@ async def notify_job_completion(job_id: str, status: str):
         if not active_connections[job_id]: # Clean up if no connections left
             del active_connections[job_id]
 
-async def process_demo_task(job_id: str, nl_task: str, root_url: str):
+async def process_demo_task(job_id: str, nl_task: str, root_url: str, demo_type: str = "video"):
     """Background task to process the demo generation"""
     global ACTIVE_MOCK_MODE # Ensure we are using the global variable
     final_status = "failed" # Default to failed
@@ -314,8 +315,8 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str):
                 current_root_url = "http://localhost:3000/"
 
         print(mode_message)
-        # Pass job_id to execute_agent
-        agent_result = await execute_agent(task_to_execute, current_root_url, job_id, browser_details=browser_details)
+        # Pass job_id and demo_type to execute_agent
+        agent_result = await execute_agent(task_to_execute, current_root_url, job_id, browser_details=browser_details, demo_type=demo_type)
 
         final_status = "completed"
         job_update_payload = {
@@ -383,7 +384,7 @@ async def generate_demo(request: DemoRequest, background_tasks: BackgroundTasks)
         "error": None
     }
     
-    background_tasks.add_task(process_demo_task, job_id, request.nl_task, request.root_url)
+    background_tasks.add_task(process_demo_task, job_id, request.nl_task, request.root_url, request.demo_type)
     
     return DemoStatus(**job_store[job_id])
 
