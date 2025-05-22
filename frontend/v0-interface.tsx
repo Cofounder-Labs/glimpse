@@ -1,803 +1,12 @@
 "use client"
 
-import type React from "react"
-
-import Image from "next/image"
-import {
-  ChevronRight,
-  FileText,
-  Users,
-  Settings,
-  ShoppingCart,
-  PlusCircle,
-  MoreHorizontal,
-  Upload,
-  ChevronDown,
-  Code,
-  Monitor,
-  Copy,
-  Share2,
-  ArrowLeft,
-  Clock,
-  Grid,
-  Users2,
-  Star,
-  SkipBack,
-  Play,
-  SkipForward,
-  ZoomOut,
-  ZoomIn,
-} from "lucide-react"
-import { useState, useEffect, useMemo, useRef } from "react"
-
-// LoadingIndicator component
-const LoadingIndicator = ({ loadingText, loadingDots }: { loadingText: string; loadingDots: string }) => (
-  <div className="mb-8">
-    <div className="flex items-start gap-3">
-      <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center">
-        <div className="animate-pulse">
-          <svg className="w-5 h-5 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M12 4V4.01M12 8V16M12 20V20.01M4 12H4.01M8 12H16M20 12H20.01"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
-      </div>
-      <div>
-        <div className="flex items-center">
-          <p className="text-gray-500">{loadingText}</p>
-          <span className="text-gray-500 w-6 inline-block">{loadingDots}</span>
-        </div>
-        <div className="mt-2 w-full bg-gray-200 rounded-full h-1.5">
-          <div className="bg-gray-500 h-1.5 rounded-full animate-progress"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-)
-
-// PreviousDemoCard component
-const PreviousDemoCard = ({
-  title,
-  description,
-  image,
-}: {
-  title: string
-  description: string
-  image: string
-}) => (
-  <div className="border rounded-lg overflow-hidden bg-gray-50">
-    <div className="h-48 bg-gray-100 flex items-center justify-center">
-      <Image
-        src={image || "/placeholder.svg"}
-        alt={title}
-        width={300}
-        height={200}
-        className="object-cover w-full h-full"
-      />
-    </div>
-    <div className="p-4">
-      <h3 className="font-medium text-lg">{title}</h3>
-      <p className="text-sm text-gray-500 mt-1">{description}</p>
-      <div className="mt-3 flex justify-between items-center">
-        <span className="text-xs text-gray-400">2 days ago</span>
-        <button className="text-xs text-gray-600 hover:text-gray-900 border px-2 py-1 rounded">View</button>
-      </div>
-    </div>
-  </div>
-)
-
-// ActionButton component
-const ActionButton = ({ icon, label }: { icon: React.ReactNode; label: string }) => (
-  <button className="flex items-center gap-2 px-4 py-2 rounded-full border hover:bg-gray-50">
-    {icon}
-    <span>{label}</span>
-  </button>
-)
-
-// Slide component
-const Slide = ({
-  slide,
-  index,
-  isActive,
-  onClick,
-}: {
-  slide: { id: number; title: string; content: string }
-  index: number
-  isActive: boolean
-  onClick: () => void
-}) => (
-  <div
-    className={`mb-2 p-1 rounded cursor-pointer border ${isActive ? "border-black" : "border-gray-200"}`}
-    onClick={onClick}
-  >
-    <div className="aspect-video bg-white rounded flex items-center justify-center relative">
-      <span className="absolute bottom-1 left-1 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center">
-        {index + 1}
-      </span>
-      <div className="text-xs text-gray-400">{slide.content}</div>
-    </div>
-  </div>
-)
-
-// PublishedView component
-const PublishedView = ({
-  submittedText,
-  slides,
-  bgColor,
-  handleStartNewTask,
-  intendedEditorType,
-  recordingUrl,
-  handleGoBackToEditor,
-}: {
-  submittedText: string
-  slides: { id: number; title: string; content: string }[]
-  bgColor: string
-  handleStartNewTask: () => void
-  intendedEditorType: "video" | "screenshot"
-  recordingUrl: string | null
-  handleGoBackToEditor: () => void
-}) => {
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
-
-  const goToPrevious = () => {
-    setCurrentSlideIndex((prevIndex) => (prevIndex > 0 ? prevIndex - 1 : prevIndex))
-  }
-
-  const goToNext = () => {
-    setCurrentSlideIndex((prevIndex) => (prevIndex < slides.length - 1 ? prevIndex + 1 : prevIndex))
-  }
-
-  const currentSlide = slides[currentSlideIndex]
-  const publishedUrlDisplay = `https://glimpse.show/demo/${Math.random().toString(36).substring(2, 8)}` // Generate a dummy URL for display
-
-  return (
-    <div className="min-h-screen bg-white p-8">
-      <div className="max-w-5xl mx-auto">
-        {/* Back Button */}
-        <div className="mb-8">
-        <button 
-            onClick={handleGoBackToEditor} 
-            className="px-6 py-3 border rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Back to Editor</span>
-          </button>
-        </div>
-
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4">Your Glimpse has been published!</h1>
-          <p className="text-gray-500 max-w-2xl mx-auto">
-            Your interactive demo is now available. Share the link below.
-          </p>
-        </div>
-
-        {/* Slideshow Section */}
-        <div className={`border rounded-lg p-8 mb-8 ${bgColor}`}> {/* Apply background color here */}
-          {/* Slideshow Display Area or Video Player */} 
-          {intendedEditorType === 'video' && recordingUrl ? (
-            <div className="relative w-full aspect-video bg-black rounded-lg shadow-xl overflow-hidden flex items-center justify-center mb-6">
-              <video src={recordingUrl} controls className="absolute inset-0 w-full h-full" />
-            </div>
-          ) : (
-            <>
-              <div className="relative w-full aspect-video bg-white/80 backdrop-blur-md rounded-lg shadow-xl overflow-hidden flex items-center justify-center mb-6">
-                {currentSlide && (
-                  <Image
-                    src={currentSlide.content}
-                    alt={currentSlide.title}
-                    layout="fill"
-                    objectFit="contain" // Use contain for slideshow view
-                    className="absolute inset-0 w-full h-full"
-                    priority={true} // Prioritize loading the visible slide image
-                  />
-                )}
-              </div>
-
-              {/* Navigation Controls - Only show for slides */} 
-              <div className="flex items-center justify-between w-full">
-                <button
-                  onClick={goToPrevious}
-                  disabled={currentSlideIndex === 0}
-                  className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed bg-white/70 backdrop-blur-sm flex items-center gap-2 text-sm"
-                >
-                  Previous
-                </button>
-                <span className="text-sm text-gray-700 bg-white/70 backdrop-blur-sm px-3 py-1 rounded-full">
-                  Slide {currentSlideIndex + 1} of {slides.length}
-                </span>
-                <button
-                  onClick={goToNext}
-                  disabled={currentSlideIndex === slides.length - 1}
-                  className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed bg-white/70 backdrop-blur-sm flex items-center gap-2 text-sm"
-                >
-                  Next
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-
-         {/* Share Link Section (Optional - kept original structure) */}
-         <div className="flex flex-col items-center mb-8">
-           <p className="text-gray-500 mb-3">Share this link with your audience:</p>
-           <div className="flex items-center gap-2 w-full max-w-xl">
-             <div className="flex-1 bg-white border rounded-l-lg p-3 text-gray-700 overflow-hidden overflow-ellipsis">
-               {publishedUrlDisplay} {/* Show the generated dummy URL */}
-             </div>
-             <button className="bg-gray-100 border border-l-0 rounded-r-lg p-3 text-gray-700 hover:bg-gray-200">
-               <Copy className="w-5 h-5" />
-             </button>
-           </div>
-         </div>
-
-        {/* Action Buttons */}
-        <div className="flex justify-center gap-4">
-          
-          <button className="px-6 py-3 border rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-            <Share2 className="w-5 h-5" />
-            <span>Share</span>
-          </button>
-          <button
-            onClick={handleStartNewTask}
-            className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 flex items-center gap-2"
-          >
-            <PlusCircle className="w-5 h-5" />
-            <span>Create new</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// SlideEditor component - Accept bgColor prop
-const SlideEditor = ({ slide, bgColor }: { slide: { id: number; title: string; content: string } | null; bgColor: string }) => (
-  // Outer container: provides background, centers content, allows scrolling if needed
-  <div className={`flex-1 ${bgColor} flex items-center justify-center p-4 overflow-auto`}>
-    {/* Inner container (image stage): Added aspect-video for consistent shape */}
-    <div className="bg-white rounded-lg shadow-lg w-full max-w-5xl max-h-[85vh] aspect-video flex items-center justify-center relative p-4">
-      {slide ? (
-        <Image
-          src={slide.content}
-          alt={slide.title}
-          layout="fill" // Fills the parent (the p-4 padded bg-white div)
-          objectFit="contain" // Maintains aspect ratio, fits within bounds, prevents cropping
-          // No className needed here as layout="fill" handles positioning and size relative to parent
-        />
-      ) : (
-        // Fallback for when no slide is selected
-        <div className="text-center p-8">
-          <h2 className="text-xl text-gray-400 mb-6">Select a slide</h2>
-        </div>
-      )}
-    </div>
-  </div>
-)
-
-// ChatInterface component
-
-// EditorView component
-const EditorView = ({
-  handlePublish,
-  slides,
-  activeSlide,
-  setActiveSlide,
-  selectedBgColor,
-  setSelectedBgColor,
-  handleGoToHome,
-}: {
-  handlePublish: () => void
-  slides: { id: number; title: string; content: string }[]
-  activeSlide: number
-  setActiveSlide: (index: number) => void
-  selectedBgColor: string
-  setSelectedBgColor: (color: string) => void
-  handleGoToHome: () => void
-}) => {
-  // Define background color options
-  const backgroundColors = [
-    { name: 'purple', class: 'bg-gradient-to-b from-purple-600 to-purple-200', displayClass: 'bg-purple-200' },
-    { name: 'green', class: 'bg-gradient-to-b from-green-500 to-green-200', displayClass: 'bg-green-200' },
-    { name: 'orange', class: 'bg-gradient-to-b from-orange-500 to-orange-200', displayClass: 'bg-orange-200' },
-    { name: 'black', class: 'bg-black', displayClass: 'bg-black' },
-    { name: 'white', class: 'bg-white', displayClass: 'bg-white border' }, // Added border for visibility
-  ];
-
-  return (
-    <div className="h-screen flex flex-col bg-white">
-      <div className="border-b flex items-center justify-between px-6 py-3">
-        <div className="flex items-center gap-4">
-          <button onClick={() => { console.log('EditorView: Back button clicked'); handleGoToHome(); }} className="p-1 text-gray-600 hover:text-gray-900">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="font-medium">browser-use.com</div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button onClick={handlePublish} className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800">
-            Publish
-          </button>
-          <button className="p-1 text-gray-600 hover:text-gray-900">
-            <MoreHorizontal className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-      <div className="flex flex-1 overflow-hidden">
-        <div className="w-[172px] border-r overflow-y-auto p-3 bg-white">
-          {slides.map((slide, index) => (
-            <div
-              key={slide.id}
-              className={`mb-3 p-1 rounded-lg cursor-pointer border ${
-                activeSlide === index ? "border-black" : "border-gray-200"
-              } hover:border-gray-400 transition-colors`}
-              onClick={() => setActiveSlide(index)}
-            >
-              <div className="aspect-video bg-white rounded-md flex items-center justify-center relative overflow-hidden">
-                <span className="absolute bottom-1 left-1 text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center border z-10">
-                  {index + 1}
-                </span>
-                <Image
-                  src={slide.content}
-                  alt={slide.title}
-                  layout="fill"
-                  objectFit="contain"
-                  className="absolute inset-0 w-full h-full"
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-        <SlideEditor slide={slides[activeSlide]} bgColor={selectedBgColor} />
-        <div className="w-80 flex flex-col border-l bg-white">
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-6">
-              <div className="mb-6">
-                <h3 className="font-medium text-lg mb-4">Design</h3>
-
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Theme</span>
-                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-md">
-                      <div className="w-4 h-4 rounded-full bg-black"></div>
-                      <span className="text-sm">Glimpse</span>
-                      <ChevronDown className="w-4 h-4 text-gray-500" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Background</span>
-                    <div className="flex items-center gap-2">
-                      {backgroundColors.map((color) => (
-                        <div
-                          key={color.name}
-                          onClick={() => setSelectedBgColor(color.class)}
-                          className={`w-6 h-6 rounded-full cursor-pointer ${color.displayClass} ${
-                            selectedBgColor === color.class ? 'ring-2 ring-offset-1 ring-blue-500' : '' // Highlight selected
-                          }`}
-                        ></div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Font</span>
-                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-md">
-                      <span className="text-sm">Inter</span>
-                      <ChevronDown className="w-4 h-4 text-gray-500" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Cursor</span>
-                    <div className="flex items-center gap-2">
-                      <div className="border rounded-md px-2 py-1 text-xs cursor-pointer hover:bg-gray-50">K</div>
-                      <div className="border rounded-md px-2 py-1 text-xs cursor-pointer hover:bg-gray-50">→</div>
-                      <div className="border rounded-md px-2 py-1 text-xs cursor-pointer hover:bg-gray-50">••</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Audio</span>
-                    <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
-                      <span className="text-sm">None</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t">
-                <h3 className="font-medium text-lg mb-4">Content</h3>
-
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Slide title</span>
-                    <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
-                      <span className="text-sm">Edit</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Transitions</span>
-                    <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
-                      <span className="text-sm">Fade</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="p-4 border-t">
-            <textarea
-              placeholder="Ask Glimpse to edit this slide..."
-              className="w-full p-3 border rounded-lg outline-none text-sm resize-none focus:ring-1 focus:ring-black"
-              rows={2}
-            />
-            <div className="flex justify-end mt-2">
-              <button
-                type="button"
-                className="px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-colors"
-              >
-                Generate
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// InputForm component
-const InputForm = ({
-  inputText,
-  setInputText,
-  handleSubmit,
-  demoType,
-  setDemoType,
-}: {
-  inputText: string
-  setInputText: (text: string) => void
-  handleSubmit: (e: React.FormEvent) => void
-  demoType: "video" | "screenshot"
-  setDemoType: (type: "video" | "screenshot") => void
-}) => {
-  return (
-  <form onSubmit={handleSubmit} className="w-full max-w-3xl mb-8">
-    <div className="border rounded-2xl shadow-sm bg-white">
-      <div className="p-6">
-        <textarea
-          placeholder="Ask Glimpse to build..."
-          className="w-full outline-none text-gray-700 text-lg resize-none min-h-[100px]"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          rows={3}
-        />
-      </div>
-      {/* MODIFIED: Dropdown is now part of the bottom bar, aligned to the left */}
-      <div className="border-t p-3 flex justify-between items-center">
-        <div>
-          <select
-            value={demoType}
-            onChange={(e) => setDemoType(e.target.value as "video" | "screenshot")}
-            className="w-auto bg-gray-50 border border-gray-200 rounded-md px-3 py-1.5 text-sm text-gray-600 focus:outline-none focus:ring-1 focus:ring-black focus:border-black hover:bg-gray-100 transition-colors"
-          >
-            <option value="video">Video</option>
-            <option value="screenshot">Screenshot</option>
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <button type="button" className="p-2 text-gray-500 hover:text-gray-700">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-              />
-            </svg>
-          </button>
-          <button
-            type="submit"
-            className={`p-2 rounded-md ${inputText.trim() ? "bg-black text-white" : "text-gray-500"}`}
-            disabled={!inputText.trim()}
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  </form>
-  )
-}
-
-// SuggestedActions component
-const SuggestedActions = () => (
-  <div className="flex flex-wrap justify-center gap-3 mb-16">
-    <ActionButton icon={<FileText className="w-4 h-4" />} label="A demo of my new Docs" />
-    <ActionButton icon={<Users className="w-4 h-4" />} label="Onboarding flow walkthrough" />
-    <ActionButton icon={<Settings className="w-4 h-4" />} label="Admin panel in action" />
-    <ActionButton icon={<ShoppingCart className="w-4 h-4" />} label="Self-serve checkout flow" />
-  </div>
-)
-
-// PreviousDemosSection component
-const PreviousDemosSection = ({ previousDemos }: { previousDemos: any[] }) => (
-  <div className="w-full max-w-6xl">
-    <div className="flex justify-between items-center mb-4">
-      <div>
-        <h2 className="text-xl font-semibold">Previous Demos</h2>
-        <p className="text-gray-500">View your recent demo projects</p>
-      </div>
-      <button className="flex items-center text-gray-600 hover:text-gray-900">
-        <span>View All</span>
-        <ChevronRight className="w-4 h-4 ml-1" />
-      </button>
-    </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {previousDemos.map((demo, index) => (
-        <PreviousDemoCard key={index} title={demo.title} description={demo.description} image={demo.image} />
-      ))}
-    </div>
-  </div>
-)
-
-// Define type for team object outside components if used in multiple places
-type Team = {
-  id: string; // Added identifier
-  name: string;
-  logo: string;
-  imageCount: number; // Added image count
-};
-
-// NEW: Sidepanel component - Now receives state and handler via props
-const Sidepanel = ({
-  selectedTeam,
-  setSelectedTeam, // Use the passed handler
-  teams // Use passed teams data
-}: {
-  selectedTeam: Team;
-  setSelectedTeam: (team: Team) => void;
-  teams: Team[];
-}) => {
-  // State for dropdown visibility is kept local
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
-  const recentItems = [
-    "API request feature",
-    "New Documentation",
-    "New dashboard"
-  ];
-
-  // Handler for selecting a team - Calls the passed function
-  const handleTeamSelect = async (team: Team) => { // Made async
-    setSelectedTeam(team); // Call the function passed from parent to update UI state
-    setIsDropdownOpen(false); // Close the dropdown
-
-    // If the selected team is Databricks, skip sending the mock mode to the backend.
-    if (team.id === "databricks") { // Removed "free-run" from this condition
-      console.log(`${team.name} team selected. Skipping mock mode API call.`);
-      return;
-    }
-
-    // Determine the mock_mode ID based on the team's index in the teams array
-    const teamIndex = teams.findIndex(t => t.id === team.id);
-    let mockModeToSet: number | null = null;
-
-    if (teamIndex !== -1) {
-      mockModeToSet = teamIndex; // teamIndex directly corresponds to mock_mode (0 for Free Run)
-    } else {
-      console.error("Selected team not found in the teams list. Cannot set mock mode via API.");
-      return; // Do not proceed if the team isn't found (should not happen with current setup)
-    }
-
-    if (mockModeToSet === null) {
-        console.warn("Could not determine a valid mock_mode to set. API call will be skipped.");
-        return;
-    }
-
-    try {
-      const response = await fetch("http://127.0.0.1:8000/set-active-mock-mode", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ mock_mode: mockModeToSet }),
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        console.error(
-          `API Error setting mock mode to ${mockModeToSet}:`,
-          response.status,
-          errorBody
-        );
-        // Optionally, handle UI feedback here
-      } else {
-        const responseData = await response.json();
-        console.log(`Mock mode set to ${mockModeToSet} successfully:`, responseData);
-      }
-    } catch (error) {
-      console.error(`Network or other error setting mock mode to ${mockModeToSet}:`, error);
-      // Optionally, handle UI feedback here
-    }
-  };
-
-  return (
-    <div className="w-72 bg-gray-50 border-r border-gray-200 h-screen flex flex-col p-4 space-y-3 text-sm relative"> {/* Added relative positioning for dropdown */}
-      {/* Top Logo/Team Dropdown Section */}
-      <div className="mb-4 relative"> {/* Container for dropdown */}
-        {/* Dropdown Trigger Button */}
-        <button
-          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-200 w-full text-left transition-colors"
-        >
-          <Image
-            src={selectedTeam.logo}
-            alt={`${selectedTeam.name} logo`}
-            width={24} // Specify width
-            height={24} // Specify height
-            className="rounded-full flex-shrink-0 object-contain"
-          />
-          <span className="font-semibold text-lg flex-grow truncate">{selectedTeam.name}</span>
-          <ChevronDown size={16} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
-        </button>
- 
-        {/* Dropdown Menu */}
-        {isDropdownOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1">
-            {teams.map((team) => (
-              <button
-                key={team.name}
-                onClick={() => handleTeamSelect(team)} // Use internal handler which calls prop
-                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 w-full text-left text-sm"
-              >
-                <Image
-                  src={team.logo}
-                  alt={`${team.name} logo`}
-                  width={20}
-                  height={20}
-                  className="rounded-full flex-shrink-0 object-contain"
-                />
-                <span className="flex-grow truncate">{team.name}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
- 
-      <button className="w-full bg-white border border-gray-300 rounded-lg py-2.5 text-gray-700 hover:bg-gray-100 transition-colors">
-        New Chat
-      </button>
- 
-      {/* Navigation Links */}
-      <nav className="space-y-1.5">
-        <a href="#" className="flex items-center gap-3 px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
-          <Clock size={18} />
-          <span>Recents</span>
-        </a>
-        <a href="#" className="flex items-center gap-3 px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
-          <Grid size={18} />
-          <span>Projects</span>
-        </a>
-  
-      </nav>
- 
-      {/* Divider */}
-      <div className="pt-2">
-        <a href="#" className="flex items-center justify-between px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
-          <div className="flex items-center gap-3">
-            <Star size={18} />
-            <span>Favorite Projects</span>
-          </div>
-          <ChevronRight size={16} />
-        </a>
-        <a href="#" className="flex items-center justify-between px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
-          <div className="flex items-center gap-3">
-            <Star size={18} />
-            <span>Favorite Chats</span>
-          </div>
-          <ChevronRight size={16} />
-        </a>
-      </div>
- 
-      {/* Recent Items Section */}
-      <div className="pt-2 flex-grow overflow-y-auto space-y-1 pr-1">
-        <div className="flex items-center justify-between px-2 py-1.5 text-gray-600">
-          <span className="font-medium">Recent</span>
-          <ChevronDown size={16} />
-        </div>
-        {recentItems.map((item, index) => (
-          <a key={index} href="#" className="block px-2 py-1.5 text-gray-500 hover:bg-gray-200 rounded-md truncate">
-            {item}
-          </a>
-        ))}
-      </div>
- 
-
-   </div>
-  );
-};
-
-// HomePage component - Pass state and handler to Sidepanel
-const HomePage = ({
-  inputText,
-  setInputText,
-  handleSubmit,
-  previousDemos,
-  selectedTeam, // Receive state
-  setSelectedTeam, // Receive handler
-  teams, // Receive team data
-  demoType, // Add demoType
-  setDemoType, // Add setDemoType
-}: {
-  inputText: string
-  setInputText: (text: string) => void
-  handleSubmit: (e: React.FormEvent) => void
-  previousDemos: any[]
-  selectedTeam: Team;
-  setSelectedTeam: (team: Team) => void;
-  teams: Team[];
-  demoType: "video" | "screenshot"; // Add demoType prop
-  setDemoType: (type: "video" | "screenshot") => void; // Add setDemoType prop
-}) => (
-  <div className="flex h-screen bg-white">
-    {/* Pass props to Sidepanel */}
-    <Sidepanel selectedTeam={selectedTeam} setSelectedTeam={setSelectedTeam} teams={teams} />
-    <div className="flex-1 flex flex-col items-center overflow-y-auto">
-      <div className="container mx-auto px-4 py-16 flex flex-col items-center w-full">
-        <h1 className="text-4xl font-bold text-center mb-8">What are we demoing today?</h1>
-        <InputForm inputText={inputText} setInputText={setInputText} handleSubmit={handleSubmit} demoType={demoType} setDemoType={setDemoType} />
-        <SuggestedActions />
-        <PreviousDemosSection previousDemos={previousDemos} />
-      </div>
-    </div>
-  </div>
-)
-
-// LoadingView component
-const LoadingView = ({
-  submittedText,
-  loadingText,
-  loadingDots,
-}: {
-  submittedText: string
-  loadingText: string
-  loadingDots: string
-}) => (
-  <div className="container mx-auto px-4 py-16">
-    <div className="max-w-3xl mx-auto">
-      <div className="mb-8">
-        <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex-shrink-0"></div>
-          <div>
-            <p className="text-gray-800">{submittedText}</p>
-          </div>
-        </div>
-      </div>
-      <LoadingIndicator loadingText={loadingText} loadingDots={loadingDots} />
-    </div>
-  </div>
-)
-
-enum PageState {
-  Home = 0,
-  Loading = 1,
-  Editor = 2,
-  Published = 3,
-  VideoEditor = 4, // Added new state for Video Editor
-}
+import React, { useState, useEffect, useMemo } from "react"
+import { PageState, type Team, type Slide as SlideType, type Demo } from "./components/types"
+import { HomePage } from "./components/HomePage"
+import { LoadingView } from "./components/LoadingView"
+import { EditorView } from "./components/EditorView"
+import { PublishedView } from "./components/PublishedView"
+import { VideoEditorView } from "./components/VideoEditorView"
 
 export default function V0Interface() {
   const [inputText, setInputText] = useState("")
@@ -814,7 +23,7 @@ export default function V0Interface() {
   const [intendedEditorType, setIntendedEditorType] = useState<"video" | "screenshot">("video")
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null)
 
-  // Define teams data here with imageCount
+  // Define teams data
   const teams: Team[] = [
     { id: "free-run", name: "Free Run", logo: "/free-run.png", imageCount: 0 },
     { id: "browser-use", name: "Team Browser Use", logo: "/browser-use.png", imageCount: 5 },
@@ -824,29 +33,26 @@ export default function V0Interface() {
     { id: "databricks", name: "Databricks", logo: "/databricks.png", imageCount: 4 },
   ];
 
-  // State for selected team - lifted up
+  // State for selected team
   const [selectedTeam, setSelectedTeam] = useState<Team>(teams[0]);
 
   // Add effect to set mock mode on initial load
   useEffect(() => {
-    // Skip if it's Databricks team
     if (selectedTeam.id === "databricks") {
       console.log("Databricks team selected. Skipping initial mock mode API call.");
       return;
     }
 
-    // Determine the mock_mode ID based on the team's index
     const teamIndex = teams.findIndex(t => t.id === selectedTeam.id);
     let mockModeToSet: number | null = null;
 
     if (teamIndex !== -1) {
-      mockModeToSet = teamIndex; // Adjusted: teamIndex directly corresponds to mock_mode (0 for Free Run)
+      mockModeToSet = teamIndex;
     } else {
       console.error("Selected team not found in the teams list. Cannot set initial mock mode via API.");
       return;
     }
 
-    // Call the API to set the mock mode
     const setInitialMockMode = async () => {
       try {
         const response = await fetch("http://127.0.0.1:8000/set-active-mock-mode", {
@@ -874,22 +80,17 @@ export default function V0Interface() {
     };
 
     setInitialMockMode();
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
   // Dynamically generate slides using useMemo for stability
-  const slides = useMemo(() => {
+  const slides: SlideType[] = useMemo(() => {
     console.log("useMemo recalculating slides. Team:", selectedTeam.id, "ArtifactPath:", artifactPath, "ScreenshotsList Length:", screenshotsList.length);
     if (selectedTeam.id === "free-run" && screenshotsList.length > 0) {
       return screenshotsList.map((screenshotNameOrPath, i) => {
-        let imageSrc = screenshotNameOrPath; // Default to using the name/path as is
-        // Only prepend artifactPath if it's a non-empty string and screenshotNameOrPath is not already a full URL/path
+        let imageSrc = screenshotNameOrPath;
         if (artifactPath && typeof artifactPath === 'string' && artifactPath.trim() !== '' && !screenshotNameOrPath.startsWith('http') && !screenshotNameOrPath.startsWith('/')) {
           imageSrc = `/${artifactPath.trim()}/${screenshotNameOrPath}`;
         } else if (!artifactPath || artifactPath.trim() === '') {
-          // This case means artifactPath is not usable. 
-          // If screenshotNameOrPath is just a filename, it won't load correctly without a path.
-          // For now, we rely on screenshotNameOrPath being a full path if artifactPath is empty/null.
-          // Or, this path simply might not display images correctly, which is a consequence of missing artifactPath from backend.
           console.warn(` artifactPath is missing or empty for Free Run slide ${i + 1}. Using screenshot path directly: ${screenshotNameOrPath}`);
         }
         return {
@@ -899,7 +100,6 @@ export default function V0Interface() {
         };
       });
     }
-    // Fallback for other teams or if artifacts aren't ready for Free Run
     return Array.from({ length: selectedTeam.imageCount }, (_, i) => ({
       id: i,
       title: `${selectedTeam.name} - Slide ${i + 1}`,
@@ -915,16 +115,16 @@ export default function V0Interface() {
         console.warn(`Active slide ${activeSlide} is out of bounds (max ${slides.length - 1}). Resetting to slide 0.`);
         setActiveSlide(0);
       }
-    } else { // No slides currently available
+    } else {
       if (activeSlide !== 0) {
         console.warn(`No slides available, but activeSlide is ${activeSlide}. Resetting to slide 0.`);
         setActiveSlide(0);
       }
     }
-  }, [slides, activeSlide, setActiveSlide]); // Dependencies
+  }, [slides, activeSlide, setActiveSlide]);
 
-  // Previous demos data (remains static for now)
-  const previousDemos = [
+  // Previous demos data
+  const previousDemos: Demo[] = [
     {
       title: "E-commerce Dashboard",
       description: "Interactive sales analytics with real-time data",
@@ -976,12 +176,6 @@ export default function V0Interface() {
   }, [currentPage])
 
   useEffect(() => {
-    if (currentPage === PageState.Published) {
-       // No action needed here now
-    }
-  }, [currentPage])
-
-  useEffect(() => {
     if (currentPage === PageState.Loading && jobId) {
       const wsUrl = `ws://127.0.0.1:8000/ws/job-status/${jobId}`
       const ws = new WebSocket(wsUrl)
@@ -1006,44 +200,38 @@ export default function V0Interface() {
                       const jobDetails = await res.json();
                       console.log("Fetched jobDetails for Free Run (raw):", JSON.stringify(jobDetails, null, 2));
 
-                      // Always try to set artifactPath and screenshotsList from jobDetails
-                      setArtifactPath(jobDetails.artifact_path || null); // Ensure null if undefined/empty
-                      setScreenshotsList(jobDetails.screenshots || []);   // Ensure empty array if undefined/null
+                      setArtifactPath(jobDetails.artifact_path || null);
+                      setScreenshotsList(jobDetails.screenshots || []);
 
                       if (intendedEditorType === "video") {
                         if (jobDetails.recording_path) {
                           setRecordingUrl(jobDetails.recording_path);
                           console.log("Free Run recording URL set via fetchJobDetails:", jobDetails.recording_path);
-                          // Transition to VideoEditor will be handled by the useEffect watching recordingUrl.
                         } else {
                           console.error("Free Run (video mode) completed, but no recording_path found in jobDetails.");
                           setCurrentPage(PageState.Home);
                         }
                       } else if (intendedEditorType === "screenshot") {
-                        // Check if screenshots were actually received
                         if (jobDetails.screenshots && jobDetails.screenshots.length > 0) {
                           console.log("Free Run (screenshot mode): Screenshots received. artifact_path:", jobDetails.artifact_path || "N/A", "screenshots count:", jobDetails.screenshots.length, ". Proceeding to editor.");
-                          // artifactPath and screenshotsList are already set above.
-                          // Transition to Editor will be handled by the useEffect watching screenshotsList.
                         } else {
                           console.error("Free Run (screenshot mode) completed, but no (or empty) screenshots list was found in jobDetails.");
-                          setCurrentPage(PageState.Home); // Go home if no actual screenshots received
+                          setCurrentPage(PageState.Home);
                         }
                       }
                     } else {
                       console.error("Failed to fetch job details for Free Run artifacts, status:", res.status);
-                      setCurrentPage(PageState.Home); // Go home on fetch error
+                      setCurrentPage(PageState.Home);
                     }
                   } catch (fetchError) {
                     console.error("Error fetching final job details for Free Run artifacts:", fetchError);
-                    setCurrentPage(PageState.Home); // Go home on network error
+                    setCurrentPage(PageState.Home);
                   } finally {
-                    ws.close(); // Close WebSocket after processing
+                    ws.close();
                   }
                 };
                 fetchJobDetails();
               } else {
-                // For non-Free Run modes, transition directly
                 console.log("Job completed for non-Free Run. Transitioning based on intendedEditorType:", intendedEditorType);
                 if (intendedEditorType === "video") {
                   if (message.recording_path) {
@@ -1099,13 +287,12 @@ export default function V0Interface() {
       if (intendedEditorType === "video" && recordingUrl) {
         console.log("Free Run (video mode): recordingUrl is set. Transitioning to VideoEditor.");
         setCurrentPage(PageState.VideoEditor);
-      } else if (intendedEditorType === "screenshot" && screenshotsList && screenshotsList.length > 0) { // Condition now only checks screenshotsList
+      } else if (intendedEditorType === "screenshot" && screenshotsList && screenshotsList.length > 0) {
         console.log("Free Run (screenshot mode): ScreenshotsList is populated. Transitioning to Editor.");
         setCurrentPage(PageState.Editor);
       }
-      // If conditions aren't met, it stays in Loading, awaiting jobDetails from fetch or other updates.
     }
-  }, [currentPage, selectedTeam, screenshotsList, recordingUrl, setCurrentPage, intendedEditorType]); // artifactPath removed from dependencies
+  }, [currentPage, selectedTeam, screenshotsList, recordingUrl, setCurrentPage, intendedEditorType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1113,12 +300,11 @@ export default function V0Interface() {
       setSubmittedText(inputText);
       setCurrentPage(PageState.Loading);
       setJobId(null); 
-      setArtifactPath(null); // Reset artifacts
-      setScreenshotsList([]); // Reset artifacts
-      setIntendedEditorType(demoType); // Store the selected demo type for editor routing
-      setRecordingUrl(null); // Reset recording URL on new submission
+      setArtifactPath(null);
+      setScreenshotsList([]);
+      setIntendedEditorType(demoType);
+      setRecordingUrl(null);
 
-      // Special handling for Databricks team
       if (selectedTeam.id === "databricks") { 
         console.log(`${selectedTeam.name} team selected. Bypassing backend demo generation. Intended editor: ${demoType}`);
         setTimeout(() => {
@@ -1128,11 +314,10 @@ export default function V0Interface() {
           } else {
             setCurrentPage(PageState.Editor);
           }
-        }, 5000); // 5-second delay
-        return; // Important: return to prevent the normal API call path
+        }, 5000);
+        return;
       }
 
-      // Regular path for other teams (including Free Run): Call the backend to generate the demo
       try {
         const response = await fetch("http://127.0.0.1:8000/generate-demo", {
           method: "POST",
@@ -1156,8 +341,6 @@ export default function V0Interface() {
         console.log("Job created successfully:", responseData)
         if (responseData.job_id) {
           setJobId(responseData.job_id)
-          // For Free Run, artifacts will be fetched via WebSocket onmessage or after a delay
-          // No special timeout here anymore, rely on WebSocket for transition for all.
         } else {
           console.error("API Error: No job_id received from /generate-demo")
           setCurrentPage(PageState.Home)
@@ -1169,18 +352,13 @@ export default function V0Interface() {
     }
   }
 
-  // New handler to go home without clearing input text
   const handleGoToHome = () => {
     console.log('[handleGoToHome] Called. Current PageState:', PageState[currentPage]);
     setCurrentPage(PageState.Home);
-    console.log('[handleGoToHome] Set PageState to Home. Updated PageState (after set): Should be Home in next render.');
-    // We intentionally don't reset inputText, submittedText, jobId, artifactPath, screenshotsList here
-    // so the user can resume or see their previous context on the home page.
-    // ActiveSlide is reset as it's editor-specific.
+    console.log('[handleGoToHome] Set PageState to Home.');
     setActiveSlide(0);
   };
 
-  // New handler to go back to the appropriate editor from Published view
   const handleGoBackToEditor = () => {
     console.log('[handleGoBackToEditor] Called. Current PageState:', PageState[currentPage], 'intendedEditorType:', intendedEditorType);
     if (intendedEditorType === 'video') {
@@ -1190,434 +368,11 @@ export default function V0Interface() {
       setCurrentPage(PageState.Editor);
       console.log('[handleGoBackToEditor] Set PageState to Editor.');
     }
-    // States like activeSlide, inputText, recordingUrl etc. are preserved
   };
 
   const handlePublish = () => {
     setCurrentPage(PageState.Published)
   }
-
-// VideoEditorView component
-const VideoEditorView = ({
-  handlePublish,
-  recordingUrl,
-  handleGoToHome,
-}: {
-  handlePublish: () => void
-  recordingUrl: string | null;
-  handleGoToHome: () => void;
-}) => {
-  const [activeTab, setActiveTab] = useState<"Wallpaper" | "Gradient" | "Color" | "Image">("Wallpaper")
-  const [wallpaperType, setWallpaperType] = useState<"macOS" | "Spring" | "Sunset" | "Radia">("macOS")
-
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const timelineRef = useRef<HTMLDivElement>(null)
-  const playheadRef = useRef<HTMLDivElement>(null)
-
-  const [videoDuration, setVideoDuration] = useState(0)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [isScrubbing, setIsScrubbing] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(false)
-
-  const formatTime = (timeInSeconds: number): string => {
-    const minutes = Math.floor(timeInSeconds / 60)
-    const seconds = Math.floor(timeInSeconds % 60)
-    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`
-  }
-
-  useEffect(() => {
-    const video = videoRef.current
-    if (video) {
-      const handleLoadedMetadata = () => {
-        setVideoDuration(video.duration)
-      }
-      const handleTimeUpdate = () => {
-        setCurrentTime(video.currentTime)
-      }
-      const handlePlay = () => setIsPlaying(true);
-      const handlePause = () => setIsPlaying(false);
-      const handleEnded = () => setIsPlaying(false);
-
-
-      video.addEventListener("loadedmetadata", handleLoadedMetadata)
-      video.addEventListener("timeupdate", handleTimeUpdate)
-      video.addEventListener("play", handlePlay);
-      video.addEventListener("pause", handlePause);
-      video.addEventListener("ended", handleEnded);
-
-      // Set initial duration if already loaded (e.g. on hot reload)
-      if (video.readyState >= 1) { // HAVE_METADATA
-          handleLoadedMetadata();
-      }
-      // Set initial current time
-      setCurrentTime(video.currentTime);
-      setIsPlaying(!video.paused);
-
-
-      return () => {
-        video.removeEventListener("loadedmetadata", handleLoadedMetadata)
-        video.removeEventListener("timeupdate", handleTimeUpdate)
-        video.removeEventListener("play", handlePlay);
-        video.removeEventListener("pause", handlePause);
-        video.removeEventListener("ended", handleEnded);
-      }
-    }
-  }, [recordingUrl]) // Re-run if recordingUrl changes
-
-  useEffect(() => {
-    if (playheadRef.current && videoDuration > 0) {
-      const percentage = (currentTime / videoDuration) * 100
-      playheadRef.current.style.left = `${percentage}%`
-    } else if (playheadRef.current) {
-      playheadRef.current.style.left = `0%`
-    }
-  }, [currentTime, videoDuration])
-
-  const handleTimelineInteraction = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!timelineRef.current || !videoRef.current || videoDuration === 0) return
-
-    const timelineRect = timelineRef.current.getBoundingClientRect()
-    // Calculate click position relative to the timeline element
-    // clientX is the mouse position in the viewport
-    // timelineRect.left is the timeline's left edge position in the viewport
-    const clickX = event.clientX - timelineRect.left
-    let newTimeFraction = clickX / timelineRect.width
-
-    // Clamp the fraction between 0 and 1
-    newTimeFraction = Math.max(0, Math.min(1, newTimeFraction))
-
-    const newTime = newTimeFraction * videoDuration
-    videoRef.current.currentTime = newTime
-    setCurrentTime(newTime) // Immediately update currentTime state for responsiveness
-  }
-
-  const handleTimelineMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-    setIsScrubbing(true)
-    handleTimelineInteraction(event) // Seek to initial mousedown position
-    // Optionally pause video while scrubbing if it's playing
-    // if (isPlaying) videoRef.current?.pause();
-  }
-
-  const handleTimelineMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (isScrubbing) {
-      handleTimelineInteraction(event)
-    }
-  }
-
-  const handleTimelineMouseUp = () => {
-    if (isScrubbing) {
-      setIsScrubbing(false)
-      // Optionally resume video if it was paused for scrubbing
-      // if (wasPlayingBeforeScrub) videoRef.current?.play();
-    }
-  }
-  
-  // Add mouseleave from timeline to also stop scrubbing
-  const handleTimelineMouseLeave = () => {
-    if (isScrubbing) {
-        setIsScrubbing(false);
-    }
-  };
-
-  const togglePlayPause = () => {
-    if (videoRef.current) {
-      if (videoRef.current.paused || videoRef.current.ended) {
-        videoRef.current.play().catch(error => console.error("Error trying to play video:", error));
-      } else {
-        videoRef.current.pause();
-      }
-    }
-  }
-
-  const skipTime = (amount: number) => {
-    if (videoRef.current) {
-        let newTime = videoRef.current.currentTime + amount;
-        newTime = Math.max(0, Math.min(videoDuration, newTime)); // Clamp
-        videoRef.current.currentTime = newTime;
-        setCurrentTime(newTime);
-    }
-  };
-
-
-  return (
-    <div className="h-screen flex flex-col bg-white">
-      {/* Top Bar - Matches EditorView navbar */}
-      <div className="border-b flex items-center justify-between px-6 py-3">
-        <div className="flex items-center gap-4">
-          <button onClick={() => { console.log('VideoEditorView: Back button clicked'); handleGoToHome(); }} className="p-1 text-gray-600 hover:text-gray-900">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="font-medium">browser-use.com</div>
-        </div>
-
-
-        <div className="flex items-center gap-3">
-          <button onClick={handlePublish} className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800">
-            Publish
-          </button>
-          <button className="p-1 text-gray-600 hover:text-gray-900">
-            <MoreHorizontal className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Video Preview Area - Matches EditorView center area */}
-        <div className="flex-1 bg-gradient-to-b from-purple-600 to-purple-200 flex items-center justify-center p-4 overflow-auto">
-          {/* Browser Window Preview or Video Player */}
-          {recordingUrl ? (
-            <video 
-              ref={videoRef}
-              src={recordingUrl} 
-              // Remove 'controls' to implement custom controls
-              // controls 
-              className="w-full max-w-4xl max-h-[85vh] rounded-lg shadow-lg aspect-video bg-black" 
-              onDoubleClick={togglePlayPause} // Allow double click to play/pause
-              onClick={(e) => { // Prevent click from propagating if we want to use it for something else
-                e.stopPropagation();
-                // Maybe single click also toggles play/pause if not double click
-                // togglePlayPause(); 
-              }}
-            />
-          ) : (
-            <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[85vh] aspect-video flex flex-col overflow-hidden">
-              {/* Browser Top Bar */}
-              <div className="bg-gray-100 h-8 flex items-center px-3 gap-1.5 border-b">
-                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              </div>
-              {/* Browser Content Area - Placeholder when no video */}
-              <div className="flex-1 bg-white flex items-center justify-center">
-                <div className="text-center text-gray-600">
-                  <Monitor size={64} className="mx-auto mb-4 text-gray-400" />
-                  <p className="text-lg font-medium">Video Not Available</p>
-                  <p className="text-sm mb-4 text-gray-500">The video recording is being processed or is unavailable.</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right Sidebar - Matches EditorView controls sidebar */}
-        <div className="w-80 flex flex-col border-l bg-white">
-          <div className="flex-1 overflow-y-auto">
-            {/* Chat Interface - Moved to top */}
-            <div className="p-6 border-b">
-              <textarea
-                placeholder="Ask Glimpse to edit this video..."
-                className="w-full p-3 border rounded-lg outline-none text-sm resize-none focus:ring-1 focus:ring-black"
-                rows={3}
-              />
-              <div className="flex justify-end mt-3">
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-colors"
-                >
-                  Generate
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              <div className="mb-8">
-                <h3 className="font-medium text-xl mb-6">Design</h3>
-
-                <div className="space-y-8">
-                  <div>
-                    <div className="mb-4">
-                      <span className="text-gray-700 font-medium block mb-3">Background</span>
-                      <div className="flex items-center gap-3">
-                        {(["Wallpaper", "Gradient", "Color", "Image"] as const).map((tab) => (
-                          <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-3 py-1.5 text-sm rounded flex-1 ${
-                              activeTab === tab ? "bg-gray-200 text-gray-800" : "hover:bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {tab}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {activeTab === "Wallpaper" && (
-                    <div className="space-y-6">
-                      <div>
-                        <div className="mb-3">
-                          <span className="text-gray-700 block mb-3">Type</span>
-                          <div className="grid grid-cols-4 gap-3">
-                            {(["macOS", "Spring", "Sunset", "Radia"] as const).map((type) => (
-                              <button
-                                key={type}
-                                onClick={() => setWallpaperType(type)}
-                                className={`px-2 py-1.5 text-sm rounded ${
-                                  wallpaperType === type
-                                    ? "bg-gray-200 text-gray-800"
-                                    : "bg-gray-50 hover:bg-gray-100 text-gray-600"
-                                }`}
-                              >
-                                {type}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <button className="w-full flex items-center justify-center gap-2 text-sm py-2.5 bg-gray-50 hover:bg-gray-100 rounded-md text-gray-700 border">
-                        <Star size={16} /> Pick random wallpaper
-                      </button>
-                      {/* Wallpaper Thumbnails */}
-                      <div className="grid grid-cols-3 gap-3 mt-2">
-                        {Array.from({ length: 6 }).map((_, i) => (
-                          <div
-                            key={i}
-                            className="aspect-video bg-gray-100 rounded hover:bg-gray-200 cursor-pointer border"
-                          ></div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-6">
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-gray-700">Background blur</span>
-                        <div className="w-40">
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            defaultValue="30"
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-gray-700">Padding</span>
-                        <div className="w-40">
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            defaultValue="50"
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-gray-700">Rounded corners</span>
-                        <div className="w-40">
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            defaultValue="60"
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-6 border-t">
-                <h3 className="font-medium text-xl mb-6">Content</h3>
-
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-gray-700">Audio</span>
-                    <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
-                      <span className="text-sm">None</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-gray-700">Transitions</span>
-                    <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
-                      <span className="text-sm">Fade</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Timeline Area - Styled to match the light theme */}
-      <div className="h-28 bg-white border-t p-3 flex flex-col justify-between">
-        <div className="flex items-center justify-between text-xs mb-1">
-          <span className="text-gray-600">1 visible timeline</span>
-          <ChevronDown size={16} className="text-gray-600" />
-        </div>
-        {/* Timeline controls and track */}
-        <div 
-          ref={timelineRef}
-          className="flex-1 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-500 relative border cursor-pointer"
-          onMouseDown={handleTimelineMouseDown}
-          onMouseMove={handleTimelineMouseMove}
-          onMouseUp={handleTimelineMouseUp}
-          onMouseLeave={handleTimelineMouseLeave} // Stop scrubbing if mouse leaves timeline
-          onClick={(e) => { // Handle simple click to seek for better UX if not dragging
-            if (!isScrubbing) { // Only if not part of a drag
-                handleTimelineInteraction(e);
-            }
-          }}
-        >
-          <div 
-            ref={playheadRef}
-            className="absolute top-1/2 -translate-y-1/2 w-1 h-6 bg-black rounded-full pointer-events-none" /* Added pointer-events-none */
-          ></div>
-          {/* Timeline Track - Text removed for clarity, or can be kept if styled appropriately */}
-        </div>
-        <div className="flex items-center justify-between mt-1">
-          <div className="flex items-center gap-2">
-            <button onClick={() => skipTime(-5)} className="p-1 hover:bg-gray-100 rounded text-gray-600">
-              <SkipBack size={16} />
-            </button>
-            <button onClick={togglePlayPause} className="p-1 hover:bg-gray-100 rounded text-gray-600">
-              {isPlaying ? <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> : <Play size={16} />}
-            </button>
-            <button onClick={() => skipTime(5)} className="p-1 hover:bg-gray-100 rounded text-gray-600">
-              <SkipForward size={16} />
-            </button>
-          </div>
-          <div className="text-xs text-gray-600 tabular-nums"> {/* Added tabular-nums for consistent width */}
-            {formatTime(currentTime)} / {formatTime(videoDuration)}
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="p-1 hover:bg-gray-100 rounded text-gray-600">
-              <ZoomOut size={16} />
-            </button>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              defaultValue="50"
-              className="w-20 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-            />
-            <button className="p-1 hover:bg-gray-100 rounded text-gray-600">
-              <ZoomIn size={16} />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 
   // Conditional rendering for different views
   if (currentPage === PageState.Published) {
