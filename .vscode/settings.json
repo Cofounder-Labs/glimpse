@@ -1,0 +1,8 @@
+{
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/glimpse/api/browser-use"
+    ],
+    "python.autoComplete.extraPaths": [
+        "${workspaceFolder}/glimpse/api/browser-use"
+    ]
+} 

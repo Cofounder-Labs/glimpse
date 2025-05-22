@@ -14,12 +14,16 @@ parent_dir = os.path.dirname(local_browser_use_path)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
+# Note for IDE type checking (this comment helps IDEs recognize the import)
+# browser_use can be found in glimpse/api/browser-use/browser_use/
 
 
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
-from browser_use import Agent, AgentHistoryList
-from browser_use.browser.browser import Browser, BrowserConfig
-from browser_use.browser.context import BrowserContext, BrowserContextConfig
+from browser_use.agent.service import Agent, AgentHistoryList 
+from browser_use.controller.service import Controller  
+from browser_use.browser.profile import BrowserProfile 
+from browser_use.browser.session import BrowserSession 
+
 import asyncio
 from dotenv import load_dotenv
 import os
@@ -63,34 +67,33 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
         recording_save_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Recording will be saved to: {recording_save_dir.resolve()}")
 
-        # Configure browser context for recording and other settings
-        context_config = BrowserContextConfig(
-            highlight_elements=False,
-            save_recording_path=str(recording_save_dir),
-            force_new_context=True
+        human_profile = BrowserProfile(
+            use_human_like_mouse=True,
+            mouse_movement_pattern="human",
+            min_mouse_movement_time=0.3,
+            max_mouse_movement_time=1.0,
+            mouse_speed_variation=0.4,
+            show_visual_cursor=True,  # Enable visual cursor
+            highlight_elements=False,  # Add the context configuration here
+            record_video_dir=str(recording_save_dir),
         )
-          
-        # Configure and initialize browser (without new_context_config as context is explicit)
-        browser_config = BrowserConfig(  
-            chrome_instance_path=chrome_path,  
-            headless=False,  
+
+        human_session = BrowserSession(
+            # chrome_instance_path=chrome_path,  
+            # headless=False,  
             disable_security=True,  
-            cdp_url=f"http://localhost:{port}"
-        )  
-          
-        browser_instance = Browser(config=browser_config)
-          
-        # Create a browser context with the recording configuration
-        recording_context = BrowserContext(browser=browser_instance, config=context_config)
+            # cdp_url=f"http://localhost:{port}",
+            browser_profile=human_profile,
+        )
           
         # Initialize and run agent with the explicit browser_context
         agent = Agent(  
             task=nl_task,  
             llm=llm,  
-            browser_context=recording_context,
-            browser=browser_instance,
-            use_vision=False,  
+            use_vision=False,
+            browser_session=human_session,  # Pass the profile with all settings
             max_failures=2,  
+            enable_memory=False, # Explicitly disable memory
         )  
           
         history_result = await agent.run()  
@@ -147,18 +150,57 @@ def _process_history(history_result: AgentHistoryList, recording_path: str) -> d
     run_artifact_folder_name = ""  
     base_artifacts_path = Path("frontend/public/run_artifacts")  
       
+    # Discover the actual video file (.webm or .mp4) FIRST
+    actual_video_filename = None # Initialize
+    recording_dir_pathobj = Path(recording_path) # recording_path is absolute dir path
+    logger.info(f"Looking for video files in directory: {recording_dir_pathobj.resolve()}")
+    logger.info(f"Absolute recording path provided to _process_history: {recording_path}")
+
+    video_files_webm = list(recording_dir_pathobj.glob("*.webm"))
+    logger.info(f"Found .webm files: {video_files_webm} using glob pattern '*.webm'")
+    
+    video_files_mp4 = list(recording_dir_pathobj.glob("*.mp4"))
+    logger.info(f"Found .mp4 files: {video_files_mp4} using glob pattern '*.mp4'")
+    
+    converted_to_mp4 = False
+
+    if video_files_webm:
+        webm_file_path = video_files_webm[0]
+        mp4_file_path = webm_file_path.with_suffix(".mp4")
+        logger.info(f"Found webm video file: {webm_file_path.name}. Attempting conversion to {mp4_file_path.name}.")
+        if _convert_to_mp4(str(webm_file_path), str(mp4_file_path)):
+            actual_video_filename = mp4_file_path.name
+            converted_to_mp4 = True
+            logger.info(f"Successfully converted {webm_file_path.name} to {actual_video_filename}. It will be used.")
+            # Optionally, remove the original .webm file if conversion is successful
+            # try:
+            #     webm_file_path.unlink()
+            #     logger.info(f"Removed original webm file: {webm_file_path.name}")
+            # except OSError as e:
+            #     logger.error(f"Error removing webm file {webm_file_path.name}: {e}")
+        else:
+            logger.warning(f"Conversion of {webm_file_path.name} to mp4 failed. Using original .webm file: {webm_file_path.name}")
+            actual_video_filename = webm_file_path.name
+    elif video_files_mp4:
+        actual_video_filename = video_files_mp4[0].name
+        logger.info(f"No .webm files found. Found and using .mp4 video file: {actual_video_filename} in {recording_path}")
+    else:
+        logger.warning(f"No .webm or .mp4 video file found in {recording_path}. 'actual_video_filename' will be None.")
+
+    # Now, process history items if they exist
     if not hasattr(history_result, 'history') or not isinstance(history_result.history, list) or not history_result.history:  
-        logger.info("No history items found in history_result to process for artifacts.")  
+        logger.info("No history items found in history_result to process for artifacts (this might be due to agent failure).")  
+        # Still return what we found about the video
         return {  
-            "steps": history_result,  
+            "steps": history_result,  # or an empty list/default value if history_result is problematic
             "artifact_path": "",  
             "screenshots": [],  
             "interactions": [],  
-            "recording_dir_absolute_path": recording_path, # Keep full path to dir
-            "actual_video_filename": None # No video file found
+            "recording_dir_absolute_path": recording_path, 
+            "actual_video_filename": actual_video_filename # This will now have a value if a video was found
         }  
       
-    # Create artifact folder  
+    # Create artifact folder (only if history items exist to be processed)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")  
     run_artifact_folder_name = f"run_{timestamp}"  
     specific_run_path = base_artifacts_path / run_artifact_folder_name  
@@ -176,36 +218,6 @@ def _process_history(history_result: AgentHistoryList, recording_path: str) -> d
         item_interactions = _extract_interactions(history_item, i)  
         interactions_data.extend(item_interactions)  
       
-    # Discover the actual video file (.webm or .mp4)
-    recording_dir_pathobj = Path(recording_path) # recording_path is absolute dir path
-    video_files_webm = list(recording_dir_pathobj.glob("*.webm"))
-    video_files_mp4 = list(recording_dir_pathobj.glob("*.mp4"))
-    
-    actual_video_filename = None
-    converted_to_mp4 = False
-
-    if video_files_webm:
-        webm_file_path = video_files_webm[0]
-        mp4_file_path = webm_file_path.with_suffix(".mp4")
-        logger.info(f"Found webm video file: {webm_file_path.name}. Attempting conversion to {mp4_file_path.name}.")
-        if _convert_to_mp4(str(webm_file_path), str(mp4_file_path)):
-            actual_video_filename = mp4_file_path.name
-            converted_to_mp4 = True
-            # Optionally, remove the original .webm file if conversion is successful
-            # try:
-            #     webm_file_path.unlink()
-            #     logger.info(f"Removed original webm file: {webm_file_path.name}")
-            # except OSError as e:
-            #     logger.error(f"Error removing webm file {webm_file_path.name}: {e}")
-        else:
-            logger.warning(f"Conversion of {webm_file_path.name} to mp4 failed. Using original webm.")
-            actual_video_filename = webm_file_path.name
-    elif video_files_mp4:
-        actual_video_filename = video_files_mp4[0].name
-        logger.info(f"Found mp4 video file: {actual_video_filename} in {recording_path}")
-    else:
-        logger.warning(f"No .webm or .mp4 video file found in {recording_path}")
-
     return {  
         "steps": history_result,  
         "artifact_path": f"run_artifacts/{run_artifact_folder_name}" if run_artifact_folder_name else "",  

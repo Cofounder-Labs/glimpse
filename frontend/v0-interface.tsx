@@ -879,12 +879,25 @@ export default function V0Interface() {
   // Dynamically generate slides using useMemo for stability
   const slides = useMemo(() => {
     console.log("useMemo recalculating slides. Team:", selectedTeam.id, "ArtifactPath:", artifactPath, "ScreenshotsList Length:", screenshotsList.length);
-    if (selectedTeam.id === "free-run" && artifactPath && screenshotsList.length > 0) {
-      return screenshotsList.map((screenshotName, i) => ({
-        id: i,
-        title: `Free Run - Step ${i + 1}`,
-        content: `/${artifactPath}/${screenshotName}`,
-      }));
+    if (selectedTeam.id === "free-run" && screenshotsList.length > 0) {
+      return screenshotsList.map((screenshotNameOrPath, i) => {
+        let imageSrc = screenshotNameOrPath; // Default to using the name/path as is
+        // Only prepend artifactPath if it's a non-empty string and screenshotNameOrPath is not already a full URL/path
+        if (artifactPath && typeof artifactPath === 'string' && artifactPath.trim() !== '' && !screenshotNameOrPath.startsWith('http') && !screenshotNameOrPath.startsWith('/')) {
+          imageSrc = `/${artifactPath.trim()}/${screenshotNameOrPath}`;
+        } else if (!artifactPath || artifactPath.trim() === '') {
+          // This case means artifactPath is not usable. 
+          // If screenshotNameOrPath is just a filename, it won't load correctly without a path.
+          // For now, we rely on screenshotNameOrPath being a full path if artifactPath is empty/null.
+          // Or, this path simply might not display images correctly, which is a consequence of missing artifactPath from backend.
+          console.warn(` artifactPath is missing or empty for Free Run slide ${i + 1}. Using screenshot path directly: ${screenshotNameOrPath}`);
+        }
+        return {
+          id: i,
+          title: `Free Run - Step ${i + 1}`,
+          content: imageSrc,
+        };
+      });
     }
     // Fallback for other teams or if artifacts aren't ready for Free Run
     return Array.from({ length: selectedTeam.imageCount }, (_, i) => ({
@@ -992,19 +1005,30 @@ export default function V0Interface() {
                     if (res.ok) {
                       const jobDetails = await res.json();
                       console.log("Fetched jobDetails for Free Run (raw):", JSON.stringify(jobDetails, null, 2));
-                      if (jobDetails.artifact_path && jobDetails.screenshots && jobDetails.screenshots.length > 0) {
-                        setArtifactPath(jobDetails.artifact_path);
-                        setScreenshotsList(jobDetails.screenshots);
-                        console.log("Free Run artifacts loaded via fetchJobDetails:", jobDetails.artifact_path, jobDetails.screenshots);
-                        // If it's a video demo, also set the recording URL from jobDetails
-                        if (intendedEditorType === "video" && jobDetails.recording_path) {
-                           setRecordingUrl(jobDetails.recording_path);
-                           console.log("Free Run recording URL set:", jobDetails.recording_path);
+
+                      // Always try to set artifactPath and screenshotsList from jobDetails
+                      setArtifactPath(jobDetails.artifact_path || null); // Ensure null if undefined/empty
+                      setScreenshotsList(jobDetails.screenshots || []);   // Ensure empty array if undefined/null
+
+                      if (intendedEditorType === "video") {
+                        if (jobDetails.recording_path) {
+                          setRecordingUrl(jobDetails.recording_path);
+                          console.log("Free Run recording URL set via fetchJobDetails:", jobDetails.recording_path);
+                          // Transition to VideoEditor will be handled by the useEffect watching recordingUrl.
+                        } else {
+                          console.error("Free Run (video mode) completed, but no recording_path found in jobDetails.");
+                          setCurrentPage(PageState.Home);
                         }
-                        // Transition will be handled by the artifact loaded useEffect
-                      } else {
-                        console.error("Free Run artifacts condition failed. artifact_path:", jobDetails.artifact_path, "screenshots:", jobDetails.screenshots, "screenshots.length:", jobDetails.screenshots ? jobDetails.screenshots.length : 'undefined');
-                        setCurrentPage(PageState.Home); // Go home if artifacts are missing
+                      } else if (intendedEditorType === "screenshot") {
+                        // Check if screenshots were actually received
+                        if (jobDetails.screenshots && jobDetails.screenshots.length > 0) {
+                          console.log("Free Run (screenshot mode): Screenshots received. artifact_path:", jobDetails.artifact_path || "N/A", "screenshots count:", jobDetails.screenshots.length, ". Proceeding to editor.");
+                          // artifactPath and screenshotsList are already set above.
+                          // Transition to Editor will be handled by the useEffect watching screenshotsList.
+                        } else {
+                          console.error("Free Run (screenshot mode) completed, but no (or empty) screenshots list was found in jobDetails.");
+                          setCurrentPage(PageState.Home); // Go home if no actual screenshots received
+                        }
                       }
                     } else {
                       console.error("Failed to fetch job details for Free Run artifacts, status:", res.status);
@@ -1067,23 +1091,21 @@ export default function V0Interface() {
     }
   }, [currentPage, jobId, setCurrentPage, setJobId, intendedEditorType])
 
-  // useEffect to transition to Editor for Free Run once artifacts are loaded
+  // useEffect to transition to Editor for Free Run once artifacts OR recordingUrl are loaded
   useEffect(() => {
-    console.log("useEffect (Free Run Transition Check) triggered. currentPage:", PageState[currentPage], "selectedTeam:", selectedTeam.id, "artifactPath:", artifactPath, "screenshotsList.length:", screenshotsList.length);
+    console.log("useEffect (Free Run Transition Check) triggered. currentPage:", PageState[currentPage], "selectedTeam:", selectedTeam.id, "screenshotsList.length:", screenshotsList.length, "recordingUrl:", recordingUrl, "intendedEditorType:", intendedEditorType);
 
-    if (currentPage === PageState.Loading &&
-        selectedTeam.id === "free-run" &&
-        artifactPath && 
-        screenshotsList.length > 0
-    ) {
-      console.log("Free Run artifacts ready, conditions met! Transitioning based on intendedEditorType:", intendedEditorType, artifactPath, screenshotsList);
-      if (intendedEditorType === "video") {
+    if (currentPage === PageState.Loading && selectedTeam.id === "free-run") {
+      if (intendedEditorType === "video" && recordingUrl) {
+        console.log("Free Run (video mode): recordingUrl is set. Transitioning to VideoEditor.");
         setCurrentPage(PageState.VideoEditor);
-      } else {
+      } else if (intendedEditorType === "screenshot" && screenshotsList && screenshotsList.length > 0) { // Condition now only checks screenshotsList
+        console.log("Free Run (screenshot mode): ScreenshotsList is populated. Transitioning to Editor.");
         setCurrentPage(PageState.Editor);
       }
+      // If conditions aren't met, it stays in Loading, awaiting jobDetails from fetch or other updates.
     }
-  }, [currentPage, selectedTeam, artifactPath, screenshotsList, setCurrentPage, intendedEditorType]);
+  }, [currentPage, selectedTeam, screenshotsList, recordingUrl, setCurrentPage, intendedEditorType]); // artifactPath removed from dependencies
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
