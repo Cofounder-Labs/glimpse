@@ -19,8 +19,8 @@ export default function V0Interface() {
   const [selectedBgColor, setSelectedBgColor] = useState("bg-gradient-to-b from-purple-600 to-purple-200")
   const [artifactPath, setArtifactPath] = useState<string | null>(null)
   const [screenshotsList, setScreenshotsList] = useState<string[]>([])
-  const [demoType, setDemoType] = useState<"video" | "screenshot">("video")
-  const [intendedEditorType, setIntendedEditorType] = useState<"video" | "screenshot">("video")
+  const [demoType, setDemoType] = useState<"video" | "interactive demo">("video")
+  const [intendedEditorType, setIntendedEditorType] = useState<"video" | "interactive demo">("video")
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null)
 
   // Define teams data
@@ -214,11 +214,11 @@ export default function V0Interface() {
                           console.error("Free Run (video mode) completed, but no recording_path found in jobDetails.");
                           setCurrentPage(PageState.Home);
                         }
-                      } else if (intendedEditorType === "screenshot") {
+                      } else if (intendedEditorType === "interactive demo") {
                         if (jobDetails.screenshots && jobDetails.screenshots.length > 0) {
-                          console.log("Free Run (screenshot mode): Screenshots received. artifact_path:", jobDetails.artifact_path || "N/A", "screenshots count:", jobDetails.screenshots.length, ". Proceeding to editor.");
+                          console.log("Free Run (interactive demo mode): Screenshots received. artifact_path:", jobDetails.artifact_path || "N/A", "screenshots count:", jobDetails.screenshots.length, ". Proceeding to editor.");
                         } else {
-                          console.error("Free Run (screenshot mode) completed, but no (or empty) screenshots list was found in jobDetails.");
+                          console.error("Free Run (interactive demo mode) completed, but no (or empty) screenshots list was found in jobDetails.");
                           setCurrentPage(PageState.Home);
                         }
                       }
@@ -305,8 +305,8 @@ export default function V0Interface() {
       if (intendedEditorType === "video" && recordingUrl) {
         console.log("Free Run (video mode): recordingUrl is set. Transitioning to VideoEditor.");
         setCurrentPage(PageState.VideoEditor);
-      } else if (intendedEditorType === "screenshot" && screenshotsList && screenshotsList.length > 0) {
-        console.log("Free Run (screenshot mode): ScreenshotsList is populated. Transitioning to Editor.");
+      } else if (intendedEditorType === "interactive demo" && screenshotsList && screenshotsList.length > 0) {
+        console.log("Free Run (interactive demo mode): ScreenshotsList is populated. Transitioning to Editor.");
         setCurrentPage(PageState.Editor);
       }
     }
@@ -435,7 +435,7 @@ export default function V0Interface() {
       setCurrentPage(PageState.VideoEditor);
       console.log('[handleSkipAgent] Navigating to VideoEditor with pre-recorded content');
     } else {
-      // For screenshot mode, use mock slides based on the team
+      // For interactive demo mode, use mock slides based on the team
       setCurrentPage(PageState.Editor);
       console.log('[handleSkipAgent] Navigating to Editor with mock slides');
     }
