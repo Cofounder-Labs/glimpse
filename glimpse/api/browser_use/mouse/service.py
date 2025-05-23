@@ -6,11 +6,12 @@ import asyncio
 import logging
 import math
 import random
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Union
 
 from playwright.async_api import Page, ElementHandle
 
 from browser_use.mouse.views import MouseMovementPattern, MouseMovementConfig
+from .cursor_design import get_mouse_pointer_javascript, get_pointing_hand_javascript
 
 logger = logging.getLogger(__name__)
 
@@ -105,52 +106,7 @@ class MouseMovementService:
             return
             
         logger.info("🖱️ Creating visual cursor indicator")
-        script = """
-        () => {
-            // Remove any existing cursor
-            const existingCursor = document.getElementById('browser-use-visual-cursor');
-            if (existingCursor) {
-                existingCursor.remove();
-            }
-            
-            // Create cursor element using CSS to show a realistic mouse pointer
-            const cursor = document.createElement('div');
-            cursor.id = 'browser-use-visual-cursor';
-            cursor.style.position = 'fixed';
-            cursor.style.width = '20px';
-            cursor.style.height = '20px';
-            cursor.style.top = '0';
-            cursor.style.left = '0';
-            cursor.style.zIndex = '9999999';
-            cursor.style.pointerEvents = 'none';
-            cursor.style.transition = 'transform 0.1s ease-out';
-            
-            // Create realistic mouse pointer using CSS
-            cursor.style.background = `
-                linear-gradient(45deg, transparent 40%, white 40%, white 50%, black 50%, black 60%, white 60%),
-                linear-gradient(-45deg, transparent 40%, white 40%, white 50%, black 50%, black 60%, white 60%)
-            `;
-            cursor.style.clipPath = 'polygon(0% 0%, 0% 70%, 20% 55%, 35% 100%, 50% 85%, 30% 50%, 100% 0%)';
-            cursor.style.filter = 'drop-shadow(1px 1px 2px rgba(0,0,0,0.8))';
-            
-            // Fallback: use a more realistic white pointer with black outline
-            cursor.innerHTML = `
-                <svg width="20" height="20" viewBox="0 0 20 20" style="pointer-events: none;">
-                    <path d="M0,0 L0,14 L4,10 L7,10 L12,20 L14,19 L9,9 L12,9 L0,0 Z" 
-                          fill="black" 
-                          stroke="white" 
-                          stroke-width="2"/>
-                </svg>
-            `;
-            
-            document.body.appendChild(cursor);
-            
-            // Store a reference to the cursor element for future use
-            window.__browserUseVisualCursor = cursor;
-            
-            console.log('Visual cursor created');
-        }
-        """
+        script = get_mouse_pointer_javascript()
         await page.evaluate(script)
         self._visual_cursor_initialized = True
         
@@ -177,71 +133,59 @@ class MouseMovementService:
                 
                 // Debug log
                 console.log('Updating cursor position to:', params.x, params.y);
-                
-                // Show click effect
-                if (params.clicking) {
-                    // Change cursor to hand pointer during click
-                    cursor.innerHTML = `
-                        <svg width="20" height="20" viewBox="0 0 20 20" style="pointer-events: none;">
-                            <path d="M8,2 C8,1 9,0 10,0 C11,0 12,1 12,2 L12,6 L13,6 C14,6 15,7 15,8 C15,8 15,9 15,10 L15,12 C15,15 12,18 9,18 L6,18 C4,18 2,16 2,14 L2,10 C2,9 3,8 4,8 L6,8 L6,4 C6,3 7,2 8,2 Z" 
-                                  fill="black" 
-                                  stroke="white" 
-                                  stroke-width="2"/>
-                        </svg>
-                    `;
-                    
-                    // Create a click ripple effect
-                    const ripple = document.createElement('div');
-                    ripple.style.position = 'fixed';
-                    ripple.style.left = (params.x - 15) + 'px';
-                    ripple.style.top = (params.y - 15) + 'px';
-                    ripple.style.width = '30px';
-                    ripple.style.height = '30px';
-                    ripple.style.borderRadius = '50%';
-                    ripple.style.backgroundColor = 'rgba(0, 123, 255, 0.3)';
-                    ripple.style.border = '2px solid rgba(0, 123, 255, 0.6)';
-                    ripple.style.zIndex = '9999998';
-                    ripple.style.pointerEvents = 'none';
-                    ripple.style.animation = 'browser-use-ripple 0.6s ease-out';
-                    
-                    // Add the keyframes if they don't exist
-                    if (!document.getElementById('browser-use-ripple-keyframes')) {
-                        const style = document.createElement('style');
-                        style.id = 'browser-use-ripple-keyframes';
-                        style.textContent = `
-                            @keyframes browser-use-ripple {
-                                0% { transform: scale(0.3); opacity: 1; }
-                                100% { transform: scale(1.5); opacity: 0; }
-                            }
-                        `;
-                        document.head.appendChild(style);
-                    }
-                    
-                    document.body.appendChild(ripple);
-                    setTimeout(() => ripple.remove(), 600);
-                    
-                    // Scale down cursor slightly during click
-                    cursor.style.transform = 'scale(0.9)';
-                    
-                    // Reset cursor back to pointer after click
-                    setTimeout(() => {
-                        cursor.innerHTML = `
-                            <svg width="20" height="20" viewBox="0 0 20 20" style="pointer-events: none;">
-                                <path d="M0,0 L0,14 L4,10 L7,10 L12,20 L14,19 L9,9 L12,9 L0,0 Z" 
-                                      fill="black" 
-                                      stroke="white" 
-                                      stroke-width="2"/>
-                            </svg>
-                        `;
-                        cursor.style.transform = 'scale(1)';
-                    }, 200);
-                }
-            } else {
-                console.warn('Visual cursor element not found when trying to update position');
             }
         }
         """
-        await page.evaluate(script, {'x': x, 'y': y, 'clicking': clicking})
+        await page.evaluate(script, {"x": x, "y": y, "clicking": clicking})
+        
+        # Handle cursor shape change during clicking
+        if clicking:
+            # Change to hand cursor
+            hand_script = get_pointing_hand_javascript()
+            await page.evaluate(hand_script)
+            
+            # Add click ripple effect
+            ripple_script = """
+            (params) => {
+                // Create a click ripple effect
+                const ripple = document.createElement('div');
+                ripple.style.position = 'fixed';
+                ripple.style.left = (params.x - 15) + 'px';
+                ripple.style.top = (params.y - 15) + 'px';
+                ripple.style.width = '30px';
+                ripple.style.height = '30px';
+                ripple.style.borderRadius = '50%';
+                ripple.style.backgroundColor = 'rgba(0, 123, 255, 0.3)';
+                ripple.style.border = '2px solid rgba(0, 123, 255, 0.6)';
+                ripple.style.zIndex = '9999998';
+                ripple.style.pointerEvents = 'none';
+                ripple.style.animation = 'browser-use-ripple 0.6s ease-out';
+                
+                // Add the keyframes if they don't exist
+                if (!document.getElementById('browser-use-ripple-keyframes')) {
+                    const style = document.createElement('style');
+                    style.id = 'browser-use-ripple-keyframes';
+                    style.textContent = `
+                        @keyframes browser-use-ripple {
+                            0% { transform: scale(0.3); opacity: 1; }
+                            100% { transform: scale(1.5); opacity: 0; }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+                
+                document.body.appendChild(ripple);
+                setTimeout(() => ripple.remove(), 600);
+            }
+            """
+            await page.evaluate(ripple_script, {"x": x, "y": y})
+            
+            # Reset cursor back to pointer after click
+            await asyncio.sleep(0.2)
+            pointer_script = get_mouse_pointer_javascript()
+            await page.evaluate(pointer_script)
+            # Restore position after recreating cursor
+            await page.evaluate(script, {"x": x, "y": y, "clicking": False})
     
     def _generate_linear_path(
         self, start_x: int, start_y: int, end_x: int, end_y: int, steps: int

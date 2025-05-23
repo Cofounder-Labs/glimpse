@@ -69,7 +69,7 @@ ACTIVE_MOCK_MODE: Optional[int] = None
 MOCK_TASK_1 = """
 Go to https://browser-use.com
 Click on docs link https://docs.browser-use.com/
-Click on the Cloud API tab
+Click on the Cloud API button
 Under API v1.0, click on the 'Get Task Status' button
 Click on the "Try it" button
 Stop
