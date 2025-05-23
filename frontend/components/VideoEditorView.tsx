@@ -220,7 +220,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
           <button onClick={() => { console.log('VideoEditorView: Back button clicked'); handleGoToHome(); }} className="p-1 text-gray-600 hover:text-gray-900">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="font-medium text-gray-800">browser-use.com</div>
+          <div className="font-medium text-gray-800">Back</div>
         </div>
 
         <div className="flex items-center gap-3">

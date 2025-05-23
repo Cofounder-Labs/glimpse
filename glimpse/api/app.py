@@ -91,9 +91,10 @@ Stop
 MOCK_TASK_4 = """
 Go to http://localhost:3000/
 On the top left corner in the left hand panel, click the drop down menu that says "free run" and select databricks, now the selection will read databricks, that's it
-Type in the following prompt in the text box that says "What would you like to demo today?": 'generate a demo to show users how they can create a new workflow on databricks by ingesting data from salesforce'
+Type in the following prompt in the text box that says "What would you like to demo today?": 'Generate a demo to show users how they can create a new workflow on databricks by ingesting data from salesforce'
 Click on the create demo button
 Once the page loads, click on the publish button on the top right
+Create a countdown to 1000 seconds, after that countdown is done
 Scroll down and click on the share button
 Stop
 """
@@ -144,6 +145,7 @@ def launch_chrome_with_debugging():
             chrome_path,
             f'--remote-debugging-port={port}',
             f'--user-data-dir={user_data_dir}',
+            'http://localhost:3000',
             # Add any other flags you were using, like window size/position, if they apply here
             # f"--window-size={initial_width},{initial_height}",
             # f"--window-position={initial_x},{initial_y}",
@@ -467,7 +469,7 @@ def get_mock_mode_folder(mock_mode: int) -> str:
         2: "github",       # MOCK_TASK_2: github.com
         3: "storylane",    # MOCK_TASK_3: storylane.io
         4: "glimpse",      # MOCK_TASK_4: localhost:3000 (glimpse app)
-        5: "glimpse"       # MOCK_TASK_5: localhost:3000 (glimpse app)
+        5: "databricks"    # MOCK_TASK_5: localhost:3000 (databricks demo)
     }
     return mode_folder_map.get(mock_mode, "")
 

@@ -11,6 +11,7 @@ interface PublishedViewProps {
   intendedEditorType: "video" | "screenshot";
   recordingUrl: string | null;
   handleGoBackToEditor: () => void;
+  autoPlayVideo?: boolean;
 }
 
 export const PublishedView: React.FC<PublishedViewProps> = ({
@@ -21,6 +22,7 @@ export const PublishedView: React.FC<PublishedViewProps> = ({
   intendedEditorType,
   recordingUrl,
   handleGoBackToEditor,
+  autoPlayVideo = false,
 }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
@@ -38,13 +40,20 @@ export const PublishedView: React.FC<PublishedViewProps> = ({
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-200 via-blue-300 to-blue-400 p-8">
       <div className="max-w-5xl mx-auto">
-        <div className="mb-8">
+        <div className="mb-8 flex justify-between items-center">
           <button 
             onClick={handleGoBackToEditor} 
             className="px-6 py-3 bg-white bg-opacity-80 backdrop-blur-sm border border-white border-opacity-30 rounded-xl text-gray-700 hover:bg-opacity-90 flex items-center gap-2 transition-colors shadow-lg"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Back to Editor</span>
+          </button>
+          <button
+            onClick={handleStartNewTask}
+            className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl flex items-center gap-2 transition-colors font-semibold shadow-lg"
+          >
+            <PlusCircle className="w-5 h-5" />
+            <span>Create new</span>
           </button>
         </div>
 
@@ -58,7 +67,7 @@ export const PublishedView: React.FC<PublishedViewProps> = ({
         <div className="bg-white bg-opacity-80 backdrop-blur-sm border border-white border-opacity-30 rounded-2xl p-8 mb-8 shadow-lg">
           {intendedEditorType === 'video' && recordingUrl ? (
             <div className="relative w-full aspect-video bg-black rounded-xl shadow-xl overflow-hidden flex items-center justify-center mb-6">
-              <video src={recordingUrl} controls className="absolute inset-0 w-full h-full" />
+              <video src={recordingUrl} controls autoPlay={autoPlayVideo} className="absolute inset-0 w-full h-full" />
             </div>
           ) : (
             <>

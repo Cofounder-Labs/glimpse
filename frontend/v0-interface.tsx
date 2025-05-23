@@ -38,49 +38,52 @@ export default function V0Interface() {
 
   // Add effect to set mock mode on initial load
   useEffect(() => {
-    if (selectedTeam.id === "databricks") {
-      console.log("Databricks team selected. Skipping initial mock mode API call.");
-      return;
-    }
-
-    const teamIndex = teams.findIndex(t => t.id === selectedTeam.id);
-    let mockModeToSet: number | null = null;
-
-    if (teamIndex !== -1) {
-      mockModeToSet = teamIndex;
-    } else {
-      console.error("Selected team not found in the teams list. Cannot set initial mock mode via API.");
-      return;
-    }
-
-    const setInitialMockMode = async () => {
-      try {
-        const response = await fetch("http://127.0.0.1:8000/set-active-mock-mode", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ mock_mode: mockModeToSet }),
-        });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          console.error(
-            `API Error setting initial mock mode to ${mockModeToSet}:`,
-            response.status,
-            errorBody
-          );
-        } else {
-          const responseData = await response.json();
-          console.log(`Initial mock mode set to ${mockModeToSet} successfully:`, responseData);
-        }
-      } catch (error) {
-        console.error(`Network or other error setting initial mock mode to ${mockModeToSet}:`, error);
+    // Only run when on the HomePage
+    if (currentPage === PageState.Home) {
+      if (selectedTeam.id === "databricks") {
+        console.log("Databricks team selected on HomePage. Skipping mock mode API call.");
+        return;
       }
-    };
 
-    setInitialMockMode();
-  }, []);
+      const teamIndex = teams.findIndex(t => t.id === selectedTeam.id);
+      let mockModeToSet: number | null = null;
+
+      if (teamIndex !== -1) {
+        mockModeToSet = teamIndex;
+      } else {
+        console.error("Selected team not found on HomePage. Cannot set mock mode via API.");
+        return;
+      }
+
+      const setActiveMockMode = async () => {
+        try {
+          const response = await fetch("http://127.0.0.1:8000/set-active-mock-mode", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ mock_mode: mockModeToSet }),
+          });
+
+          if (!response.ok) {
+            const errorBody = await response.text();
+            console.error(
+              `API Error setting mock mode to ${mockModeToSet} on HomePage:`,
+              response.status,
+              errorBody
+            );
+          } else {
+            const responseData = await response.json();
+            console.log(`Mock mode set to ${mockModeToSet} successfully on HomePage:`, responseData);
+          }
+        } catch (error) {
+          console.error(`Network or other error setting mock mode to ${mockModeToSet} on HomePage:`, error);
+        }
+      };
+
+      setActiveMockMode();
+    }
+  }, [currentPage, selectedTeam, teams]);
 
   // Dynamically generate slides using useMemo for stability
   const slides: SlideType[] = useMemo(() => {
@@ -307,6 +310,22 @@ export default function V0Interface() {
 
       if (selectedTeam.id === "databricks") { 
         console.log(`${selectedTeam.name} team selected. Bypassing backend demo generation. Intended editor: ${demoType}`);
+        if (demoType === "video") {
+          // Ensure recordingUrl is set for Databricks pre-recorded video
+          const teamFolderMap: { [key: string]: string } = {
+            "browser-use": "browser-use",
+            "github": "github", 
+            "storylane": "storylane",
+            "glimpse": "glimpse",
+            "databricks": "databricks"
+          };
+          const folderName = teamFolderMap[selectedTeam.id];
+          if (folderName) {
+            const cacheBustingUrl = `http://127.0.0.1:8000/public/${folderName}/demo.mp4?t=${new Date().getTime()}`;
+            setRecordingUrl(cacheBustingUrl);
+            console.log(`[handleSubmit] Set recordingUrl for Databricks: ${cacheBustingUrl}`);
+          }
+        }
         setTimeout(() => {
           console.log(`5-second delay complete. Transitioning for Databricks to ${demoType} editor.`);
           if (demoType === "video") {
@@ -394,7 +413,9 @@ export default function V0Interface() {
       
       const folderName = teamFolderMap[selectedTeam.id];
       if (folderName) {
-        setRecordingUrl(`http://127.0.0.1:8000/public/${folderName}/demo.mp4`);
+        const cacheBustingUrl = `http://127.0.0.1:8000/public/${folderName}/demo.mp4?t=${new Date().getTime()}`;
+        setRecordingUrl(cacheBustingUrl);
+        console.log(`[handleSkipAgent] Set recordingUrl: ${cacheBustingUrl}`);
       }
       setCurrentPage(PageState.VideoEditor);
       console.log('[handleSkipAgent] Navigating to VideoEditor with pre-recorded content');
@@ -417,6 +438,7 @@ export default function V0Interface() {
         intendedEditorType={intendedEditorType}
         recordingUrl={recordingUrl}
         handleGoBackToEditor={handleGoBackToEditor}
+        autoPlayVideo={intendedEditorType === 'video'}
       />
     )
   }

@@ -28,6 +28,32 @@ poetry install
      ```
    - Open the `.env` file and fill in your API keys and any other required configuration values.
 
+## Browser Profile Setup (Optional but Recommended)
+
+If you want the agent to have access to your login sessions (e.g., GitHub, Google, etc.), you can set up a persistent Chromium profile:
+
+1. **Run the setup script:**
+   ```bash
+   poetry run python setup_chromium_profile.py
+   ```
+
+2. **Login to your services:**
+   - The script will launch Chrome with a persistent user data directory
+   - Login to any services you want the agent to have access to (GitHub, Google, etc.)
+   - Your login sessions will be automatically saved
+
+3. **Close Chrome when done:**
+   - The agent will automatically use this profile and have access to your login sessions
+   - You only need to do this setup once
+
+**What this does:**
+- Creates a `chromium_user_data/` directory in the project root (ignored by git)
+- Launches Chrome with this persistent profile
+- Any logins you perform are saved for the agent to use
+- The agent will automatically use this profile for all demo generation
+
+**Note:** The user data directory is automatically added to `.gitignore` so your login sessions won't be committed to version control.
+
 ## Running the Server
 
 ### Normal Mode

@@ -40,6 +40,20 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+def _get_persistent_user_data_dir() -> Path:
+    """Get the persistent user data directory path relative to the repo."""
+    # Get the repo root directory
+    # agent.py is in glimpse/api/agent.py
+    # So go up two levels to get to repo root
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    user_data_dir = repo_root / "chromium_user_data"
+    
+    # Create directory if it doesn't exist
+    user_data_dir.mkdir(parents=True, exist_ok=True)
+    
+    logger.info(f"Using persistent user data directory: {user_data_dir}")
+    return user_data_dir
+
 async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_details: dict | None = None, demo_type: str = "video") -> dict:  
     """  
     Execute the browser agent with the given task and URL.  
@@ -51,9 +65,6 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
           
         # Initialize LLM - simplified with a helper function  
         llm = _get_llm()  
-          
-        # Get browser configuration  
-        port, chrome_path = _validate_browser_details(browser_details)  
           
         # Conditionally prepare recording directory based on demo_type
         recording_save_dir = None
@@ -71,6 +82,9 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
         else:
             logger.info(f"Screenshot mode: No recording will be created")
 
+        # Get persistent user data directory
+        user_data_dir = _get_persistent_user_data_dir()
+
         # Configure browser profile based on demo_type
         profile_kwargs = {
             "use_human_like_mouse": True,
@@ -80,6 +94,8 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
             "mouse_speed_variation": 0.4,
             "show_visual_cursor": True,  # Enable visual cursor
             "highlight_elements": False,  # Add the context configuration here
+            "user_data_dir": str(user_data_dir),  # Use persistent user data directory  # Add extra browser arguments
+            "args": ["--autoplay-policy=no-user-gesture-required", "--no-sandbox"],  # Add extra browser arguments
         }
         
         # Only add recording directory if in video mode

@@ -38,7 +38,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
           <button onClick={() => { console.log('EditorView: Back button clicked'); handleGoToHome(); }} className="p-1 text-gray-600 hover:text-gray-900">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="font-medium">browser-use.com</div>
+          <div className="font-medium">Back</div>
         </div>
 
         <div className="flex items-center gap-3">
