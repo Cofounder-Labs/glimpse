@@ -47,6 +47,14 @@ if not recordings_dir.exists():
     recordings_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/recordings", StaticFiles(directory=recordings_dir), name="recordings")
 
+# Mount frontend/public directory for pre-recorded demo videos
+public_dir = Path(__file__).resolve().parent.parent.parent / "frontend" / "public"
+if public_dir.exists():
+    app.mount("/public", StaticFiles(directory=public_dir), name="public")
+    logger.info(f"Mounted public directory: {public_dir}")
+else:
+    logger.warning(f"Public directory not found: {public_dir}")
+
 # In-memory job store and WebSocket connections
 job_store: Dict[str, Dict] = {}
 active_connections: Dict[str, Set[WebSocket]] = {}
@@ -237,7 +245,18 @@ async def set_active_mock_mode(request: SetMockModeRequest):
 async def notify_job_completion(job_id: str, status: str):
     """Notify connected WebSocket clients about job completion."""
     if job_id in active_connections:
-        message = {"job_id": job_id, "status": status}
+        # Include full job data in the message, not just status
+        job_data = job_store.get(job_id, {})
+        message = {
+            "job_id": job_id, 
+            "status": status,
+            "recording_path": job_data.get("recording_path"),
+            "artifact_path": job_data.get("artifact_path"),
+            "screenshots": job_data.get("screenshots"),
+            "interactions": job_data.get("interactions"),
+            "progress": job_data.get("progress"),
+            "error": job_data.get("error")
+        }
         # Use a list comprehension to avoid issues with modifying the set while iterating
         connections_to_notify = list(active_connections[job_id])
         for connection in connections_to_notify:
@@ -315,6 +334,19 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str, demo_type:
                 current_root_url = "http://localhost:3000/"
 
         print(mode_message)
+        
+        # Determine current mock mode for later use
+        current_mock_mode = None
+        if ACTIVE_MOCK_MODE is not None and ACTIVE_MOCK_MODE != 0:
+            current_mock_mode = ACTIVE_MOCK_MODE
+        else:
+            # Check environment variables for mock modes
+            for mode_num in range(1, 6):
+                if os.getenv(f"MOCK_MODE{mode_num}", "false").lower() == "true":
+                    current_mock_mode = mode_num
+                    break
+        
+        # Always execute the agent to get screenshots, interactions, etc.
         # Pass job_id and demo_type to execute_agent
         agent_result = await execute_agent(task_to_execute, current_root_url, job_id, browser_details=browser_details, demo_type=demo_type)
 
@@ -334,20 +366,34 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str, demo_type:
             if agent_result.get("interactions"):
                 job_update_payload["interactions"] = agent_result["interactions"]
             
-            # Handle recording path using new keys from agent
+            # Handle recording path - first check for pre-recorded videos, then use agent result
+            agent_video_url = None
             recording_dir_abs_path = agent_result.get("recording_dir_absolute_path")
             actual_video_filename = agent_result.get("actual_video_filename")
 
             if recording_dir_abs_path and actual_video_filename:
                 # The job_specific_part for the URL is the name of the job's recording directory
                 job_specific_folder_name = Path(recording_dir_abs_path).name 
-                video_url = f"/recordings/{job_specific_folder_name}/{actual_video_filename}"
-                job_update_payload["recording_path"] = video_url # This key is used by DemoStatus and frontend
-                logger.info(f"Recording for job {job_id} available at URL: {video_url}")
+                agent_video_url = f"/recordings/{job_specific_folder_name}/{actual_video_filename}"
+                logger.info(f"Agent generated recording for job {job_id} available at URL: {agent_video_url}")
             elif recording_dir_abs_path:
                 # If we have the dir but no specific file, log it. Frontend might not get a video.
                 logger.warning(f"Recording directory for job {job_id} exists at {recording_dir_abs_path}, but no video filename was found by agent.")
-            # else: No recording path or filename provided by agent
+            
+            # Check for pre-recorded videos for non-free-run modes and video demo type
+            prerecorded_video_url = None
+            if current_mock_mode and demo_type == "video":
+                folder_name = get_mock_mode_folder(current_mock_mode)
+                prerecorded_video_url = find_prerecorded_video(folder_name)
+            
+            # Prioritize pre-recorded video over agent-generated video
+            if prerecorded_video_url:
+                job_update_payload["recording_path"] = prerecorded_video_url
+                logger.info(f"Using pre-recorded video for mock mode {current_mock_mode}: {prerecorded_video_url}")
+            elif agent_video_url:
+                job_update_payload["recording_path"] = agent_video_url
+                logger.info(f"Using agent-generated video for job {job_id}: {agent_video_url}")
+            # else: No recording path available
 
         # Specific logging for Free Run mode artifacts, if still desired
         if ACTIVE_MOCK_MODE == 0: 
@@ -414,3 +460,52 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str):
              active_connections[job_id].remove(websocket)
         if job_id in active_connections and not active_connections[job_id]:
             del active_connections[job_id] 
+
+def get_mock_mode_folder(mock_mode: int) -> str:
+    """Map mock mode numbers to their corresponding folder names in public directory"""
+    mode_folder_map = {
+        1: "browser-use",  # MOCK_TASK_1: browser-use.com
+        2: "github",       # MOCK_TASK_2: github.com
+        3: "storylane",    # MOCK_TASK_3: storylane.io
+        4: "glimpse",      # MOCK_TASK_4: localhost:3000 (glimpse app)
+        5: "glimpse"       # MOCK_TASK_5: localhost:3000 (glimpse app)
+    }
+    return mode_folder_map.get(mock_mode, "")
+
+def find_prerecorded_video(folder_name: str) -> Optional[str]:
+    """
+    Look for pre-recorded video files in the specified public folder.
+    Returns the complete URL path if found, None otherwise.
+    """
+    if not folder_name:
+        return None
+    
+    public_dir = Path(__file__).resolve().parent.parent.parent / "frontend" / "public"
+    folder_path = public_dir / folder_name
+    
+    if not folder_path.exists():
+        logger.info(f"No pre-recorded folder found: {folder_path}")
+        return None
+    
+    # Look for common video file extensions
+    video_extensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv']
+    
+    for ext in video_extensions:
+        # Look for video files, prioritizing demo.mp4 if it exists
+        demo_video = folder_path / f"demo{ext}"
+        if demo_video.exists():
+            video_url = f"http://127.0.0.1:8000/public/{folder_name}/demo{ext}"
+            logger.info(f"Found pre-recorded demo video: {video_url}")
+            return video_url
+        
+        # Also check for any video file in the folder
+        video_files = list(folder_path.glob(f"*{ext}"))
+        if video_files:
+            # Use the first video file found
+            video_file = video_files[0]
+            video_url = f"http://127.0.0.1:8000/public/{folder_name}/{video_file.name}"
+            logger.info(f"Found pre-recorded video: {video_url}")
+            return video_url
+    
+    logger.info(f"No video files found in folder: {folder_path}")
+    return None 

@@ -35,6 +35,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const formatTime = (timeInSeconds: number): string => {
     const minutes = Math.floor(timeInSeconds / 60);
@@ -102,24 +103,39 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
 
   const handleTimelineMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     setIsScrubbing(true);
+    setIsDragging(false);
     handleTimelineInteraction(event);
+    
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      setIsDragging(true);
+      if (!timelineRef.current || !videoRef.current || videoDuration === 0) return;
+      
+      const timelineRect = timelineRef.current.getBoundingClientRect();
+      const clickX = e.clientX - timelineRect.left;
+      let newTimeFraction = clickX / timelineRect.width;
+      
+      newTimeFraction = Math.max(0, Math.min(1, newTimeFraction));
+      
+      const newTime = newTimeFraction * videoDuration;
+      videoRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+    };
+    
+    const handleGlobalMouseUp = () => {
+      setIsScrubbing(false);
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+      
+      setTimeout(() => setIsDragging(false), 10);
+    };
+    
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    document.addEventListener('mouseup', handleGlobalMouseUp);
   };
 
-  const handleTimelineMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (isScrubbing) {
+  const handleTimelineClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging && !isScrubbing) {
       handleTimelineInteraction(event);
-    }
-  };
-
-  const handleTimelineMouseUp = () => {
-    if (isScrubbing) {
-      setIsScrubbing(false);
-    }
-  };
-
-  const handleTimelineMouseLeave = () => {
-    if (isScrubbing) {
-      setIsScrubbing(false);
     }
   };
 
@@ -360,14 +376,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
           ref={timelineRef}
           className="flex-1 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-500 relative border cursor-pointer"
           onMouseDown={handleTimelineMouseDown}
-          onMouseMove={handleTimelineMouseMove}
-          onMouseUp={handleTimelineMouseUp}
-          onMouseLeave={handleTimelineMouseLeave}
-          onClick={(e) => {
-            if (!isScrubbing) {
-              handleTimelineInteraction(e);
-            }
-          }}
+          onClick={handleTimelineClick}
         >
           <div 
             ref={playheadRef}
