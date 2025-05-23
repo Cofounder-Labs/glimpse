@@ -375,6 +375,36 @@ export default function V0Interface() {
     setCurrentPage(PageState.Published)
   }
 
+  // Handle skip agent - directly go to editor with pre-recorded content
+  const handleSkipAgent = () => {
+    console.log('[handleSkipAgent] Called for team:', selectedTeam.name);
+    setSubmittedText(inputText || `Demo for ${selectedTeam.name}`);
+    setIntendedEditorType(demoType);
+    
+    // For non-free-roam teams, we can use pre-recorded content or mock data
+    if (demoType === "video") {
+      // Map team IDs to their folder names for pre-recorded videos
+      const teamFolderMap: { [key: string]: string } = {
+        "browser-use": "browser-use",
+        "github": "github", 
+        "storylane": "storylane",
+        "glimpse": "glimpse",
+        "databricks": "databricks"
+      };
+      
+      const folderName = teamFolderMap[selectedTeam.id];
+      if (folderName) {
+        setRecordingUrl(`http://127.0.0.1:8000/public/${folderName}/demo.mp4`);
+      }
+      setCurrentPage(PageState.VideoEditor);
+      console.log('[handleSkipAgent] Navigating to VideoEditor with pre-recorded content');
+    } else {
+      // For screenshot mode, use mock slides based on the team
+      setCurrentPage(PageState.Editor);
+      console.log('[handleSkipAgent] Navigating to Editor with mock slides');
+    }
+  };
+
   // Conditional rendering for different views
   if (currentPage === PageState.Published) {
     console.log('[V0Interface Render] Rendering PublishedView. intendedEditorType:', intendedEditorType, 'recordingUrl:', recordingUrl);
@@ -430,6 +460,7 @@ export default function V0Interface() {
             teams={teams}
             demoType={demoType}
             setDemoType={setDemoType}
+            handleSkipAgent={handleSkipAgent}
           />
         ) : (
           <LoadingView submittedText={submittedText} loadingText={loadingText} loadingDots={loadingDots} />

@@ -2,9 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import { 
   ArrowLeft, 
   MoreHorizontal, 
-  ChevronDown, 
-  ChevronRight, 
-  Star, 
   SkipBack, 
   Play, 
   SkipForward, 
@@ -19,14 +16,71 @@ interface VideoEditorViewProps {
   handleGoToHome: () => void;
 }
 
+// ZoomSegment component for the draggable purple segments
+interface ZoomSegmentProps {
+  duration: string;
+  label: string;
+  position: number; // percentage
+  width: number; // percentage
+}
+
+const ZoomSegment: React.FC<ZoomSegmentProps> = ({ duration, label, position, width }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragPosition, setDragPosition] = useState(position);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    const startX = e.clientX;
+    const startPosition = dragPosition;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - startX;
+      const container = (e.target as HTMLElement).closest('.relative');
+      if (container) {
+        const containerWidth = container.getBoundingClientRect().width;
+        const deltaPercent = (deltaX / containerWidth) * 100;
+        const newPosition = Math.max(0, Math.min(100 - width, startPosition + deltaPercent));
+        setDragPosition(newPosition);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  return (
+    <div
+      className={`absolute h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center text-white text-sm font-medium cursor-grab select-none shadow-lg transition-transform ${
+        isDragging ? 'scale-105 cursor-grabbing' : 'hover:scale-102'
+      }`}
+      style={{ 
+        left: `${dragPosition}%`, 
+        width: `${width}%`,
+        top: '50%',
+        transform: 'translateY(-50%)'
+      }}
+      onMouseDown={handleMouseDown}
+    >
+      <div className="flex items-center gap-1">
+        <span className="text-xs opacity-90">⚡</span>
+        <span>{duration}</span>
+        <span className="text-xs opacity-75">{label}</span>
+      </div>
+    </div>
+  );
+};
+
 export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
   handlePublish,
   recordingUrl,
   handleGoToHome,
 }) => {
-  const [activeTab, setActiveTab] = useState<"Wallpaper" | "Gradient" | "Color" | "Image">("Wallpaper");
-  const [wallpaperType, setWallpaperType] = useState<"macOS" | "Spring" | "Sunset" | "Radia">("macOS");
-
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
@@ -159,9 +213,9 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
   };
 
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="h-screen flex flex-col bg-gray-50">
       {/* Top Bar */}
-      <div className="border-b flex items-center justify-between px-6 py-3">
+      <div className="border-b bg-white flex items-center justify-between px-6 py-3">
         <div className="flex items-center gap-4">
           <button onClick={() => { console.log('VideoEditorView: Back button clicked'); handleGoToHome(); }} className="p-1 text-gray-600 hover:text-gray-900">
             <ArrowLeft className="w-5 h-5" />
@@ -182,19 +236,19 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Video Preview Area */}
-        <div className="flex-1 bg-gradient-to-b from-purple-600 to-purple-200 flex items-center justify-center p-4 overflow-auto">
+        <div className="flex-1 bg-gray-100 flex items-center justify-center p-8 overflow-auto">
           {recordingUrl ? (
             <video 
               ref={videoRef}
               src={recordingUrl} 
-              className="w-full max-w-4xl max-h-[85vh] rounded-lg shadow-lg aspect-video bg-black" 
+              className="w-full h-full max-w-full max-h-full rounded-lg shadow-lg bg-black object-contain" 
               onDoubleClick={togglePlayPause}
               onClick={(e) => {
                 e.stopPropagation();
               }}
             />
           ) : (
-            <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[85vh] aspect-video flex flex-col overflow-hidden">
+            <div className="bg-white rounded-lg shadow-lg w-full h-full flex flex-col overflow-hidden">
               <div className="bg-gray-100 h-8 flex items-center px-3 gap-1.5 border-b">
                 <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                 <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
@@ -211,11 +265,11 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
           )}
         </div>
 
-        {/* Right Sidebar */}
+        {/* Right Sidebar - Simplified */}
         <div className="w-80 flex flex-col border-l bg-white">
           <div className="flex-1 overflow-y-auto">
-            {/* Chat Interface */}
-            <div className="p-6 border-b">
+            {/* Chat Interface Only */}
+            <div className="p-6">
               <textarea
                 placeholder="Ask Glimpse to edit this video..."
                 className="w-full p-3 border rounded-lg outline-none text-sm resize-none focus:ring-1 focus:ring-black"
@@ -230,194 +284,122 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
                 </button>
               </div>
             </div>
-
-            <div className="p-6">
-              <div className="mb-8">
-                <h3 className="font-medium text-xl mb-6">Design</h3>
-
-                <div className="space-y-8">
-                  <div>
-                    <div className="mb-4">
-                      <span className="text-gray-700 font-medium block mb-3">Background</span>
-                      <div className="flex items-center gap-3">
-                        {(["Wallpaper", "Gradient", "Color", "Image"] as const).map((tab) => (
-                          <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-3 py-1.5 text-sm rounded flex-1 ${
-                              activeTab === tab ? "bg-gray-200 text-gray-800" : "hover:bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {tab}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {activeTab === "Wallpaper" && (
-                    <div className="space-y-6">
-                      <div>
-                        <div className="mb-3">
-                          <span className="text-gray-700 block mb-3">Type</span>
-                          <div className="grid grid-cols-4 gap-3">
-                            {(["macOS", "Spring", "Sunset", "Radia"] as const).map((type) => (
-                              <button
-                                key={type}
-                                onClick={() => setWallpaperType(type)}
-                                className={`px-2 py-1.5 text-sm rounded ${
-                                  wallpaperType === type
-                                    ? "bg-gray-200 text-gray-800"
-                                    : "bg-gray-50 hover:bg-gray-100 text-gray-600"
-                                }`}
-                              >
-                                {type}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <button className="w-full flex items-center justify-center gap-2 text-sm py-2.5 bg-gray-50 hover:bg-gray-100 rounded-md text-gray-700 border">
-                        <Star size={16} /> Pick random wallpaper
-                      </button>
-                      <div className="grid grid-cols-3 gap-3 mt-2">
-                        {Array.from({ length: 6 }).map((_, i) => (
-                          <div
-                            key={i}
-                            className="aspect-video bg-gray-100 rounded hover:bg-gray-200 cursor-pointer border"
-                          ></div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-6">
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-gray-700">Background blur</span>
-                        <div className="w-40">
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            defaultValue="30"
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-gray-700">Padding</span>
-                        <div className="w-40">
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            defaultValue="50"
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-gray-700">Rounded corners</span>
-                        <div className="w-40">
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            defaultValue="60"
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-6 border-t">
-                <h3 className="font-medium text-xl mb-6">Content</h3>
-
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-gray-700">Audio</span>
-                    <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
-                      <span className="text-sm">None</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-gray-700">Transitions</span>
-                    <div className="flex items-center gap-2 text-gray-500 cursor-pointer hover:text-gray-700">
-                      <span className="text-sm">Fade</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
 
       {/* Timeline Area */}
-      <div className="h-28 bg-white border-t p-3 flex flex-col justify-between">
-        <div className="flex items-center justify-between text-xs mb-1">
-          <span className="text-gray-600">1 visible timeline</span>
-          <ChevronDown size={16} className="text-gray-600" />
+      <div className="bg-gray-900 border-t p-4 flex flex-col gap-4">
+        {/* Timeline Header with Time Markers */}
+        <div className="relative h-6">
+          {/* Time markers */}
+          <div className="absolute inset-0 flex justify-between items-start text-xs text-gray-400">
+            {Array.from({ length: Math.ceil(videoDuration / 5) + 1 }).map((_, index) => {
+              const time = index * 5;
+              if (time <= videoDuration) {
+                return (
+                  <div key={time} className="flex flex-col items-center">
+                    <div className="w-px h-2 bg-gray-600 mb-1"></div>
+                    <span>{formatTime(time)}</span>
+                  </div>
+                );
+              }
+              return null;
+            })}
+          </div>
         </div>
-        <div 
-          ref={timelineRef}
-          className="flex-1 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-500 relative border cursor-pointer"
-          onMouseDown={handleTimelineMouseDown}
-          onClick={handleTimelineClick}
-        >
+
+        {/* Main Timeline Track */}
+        <div className="relative">
           <div 
-            ref={playheadRef}
-            className="absolute top-1/2 -translate-y-1/2 w-1 h-6 bg-black rounded-full pointer-events-none"
-          ></div>
+            ref={timelineRef}
+            className="h-12 bg-gradient-to-r from-orange-400 to-yellow-500 rounded-lg relative cursor-pointer shadow-lg"
+            onMouseDown={handleTimelineMouseDown}
+            onClick={handleTimelineClick}
+          >
+            {/* Timeline info overlay */}
+            <div className="absolute inset-0 flex items-center justify-center text-white font-medium text-sm">
+              {Math.round(videoDuration)}s ⚡ 1x
+            </div>
+            
+            {/* Playhead */}
+            <div 
+              ref={playheadRef}
+              className="absolute top-0 w-1 h-full bg-white rounded-full shadow-lg"
+              style={{ left: '0%' }}
+            ></div>
+          </div>
         </div>
-        <div className="flex items-center justify-between mt-1">
-          <div className="flex items-center gap-2">
-            <button onClick={() => skipTime(-5)} className="p-1 hover:bg-gray-100 rounded text-gray-600">
-              <SkipBack size={16} />
+
+        {/* Zoom Track - Draggable segments */}
+        <div className="relative h-16 bg-gray-800 rounded-lg p-2">
+          <div className="flex gap-2 h-full">
+            {/* Sample zoom segments - these will be draggable but non-functional for now */}
+            <ZoomSegment 
+              duration="2.2x" 
+              label="Auto" 
+              position={0} 
+              width={25}
+            />
+            <ZoomSegment 
+              duration="2.2x" 
+              label="Auto" 
+              position={27} 
+              width={25}
+            />
+            <ZoomSegment 
+              duration="2.0x" 
+              label="Auto" 
+              position={54} 
+              width={20}
+            />
+            <ZoomSegment 
+              duration="1.5x" 
+              label="Auto" 
+              position={76} 
+              width={22}
+            />
+          </div>
+        </div>
+
+        {/* Timeline Controls */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => skipTime(-5)} className="p-2 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors">
+              <SkipBack size={20} />
             </button>
-            <button onClick={togglePlayPause} className="p-1 hover:bg-gray-100 rounded text-gray-600">
+            <button onClick={togglePlayPause} className="p-2 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors">
               {isPlaying ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="6" y="4" width="4" height="16"></rect>
                   <rect x="14" y="4" width="4" height="16"></rect>
                 </svg>
               ) : (
-                <Play size={16} />
+                <Play size={20} />
               )}
             </button>
-            <button onClick={() => skipTime(5)} className="p-1 hover:bg-gray-100 rounded text-gray-600">
-              <SkipForward size={16} />
+            <button onClick={() => skipTime(5)} className="p-2 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors">
+              <SkipForward size={20} />
             </button>
           </div>
-          <div className="text-xs text-gray-600 tabular-nums">
+          
+          <div className="text-sm text-gray-400 font-mono">
             {formatTime(currentTime)} / {formatTime(videoDuration)}
           </div>
-          <div className="flex items-center gap-2">
-            <button className="p-1 hover:bg-gray-100 rounded text-gray-600">
-              <ZoomOut size={16} />
+          
+          <div className="flex items-center gap-3">
+            <button className="p-2 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors">
+              <ZoomOut size={18} />
             </button>
             <input
               type="range"
               min="0"
               max="100"
               defaultValue="50"
-              className="w-20 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+              className="w-24 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
             />
-            <button className="p-1 hover:bg-gray-100 rounded text-gray-600">
-              <ZoomIn size={16} />
+            <button className="p-2 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors">
+              <ZoomIn size={18} />
             </button>
           </div>
         </div>
