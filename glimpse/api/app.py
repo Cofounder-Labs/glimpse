@@ -90,11 +90,10 @@ Stop
 """
 MOCK_TASK_4 = """
 Go to http://localhost:3000/
-On the top left corner in the left hand panel, click the team browser use button
-select databricks
-Type 'generate a demo to show users how they can create a new workflow on databricks by ingesting data from salesforce'
-Click on the black submit arrow
-Once the page loads, click on the publish button
+On the top left corner in the left hand panel, click the drop down menu that says "free run" and select databricks, now the selection will read databricks, that's it
+Type in the following prompt in the text box that says "What would you like to demo today?": 'generate a demo to show users how they can create a new workflow on databricks by ingesting data from salesforce'
+Click on the create demo button
+Once the page loads, click on the publish button on the top right
 Scroll down and click on the share button
 Stop
 """

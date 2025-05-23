@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Image from "next/image";
-import { ChevronDown, ChevronRight, Clock, Grid, Star } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Team } from "./types";
 
 interface SidepanelProps {
@@ -15,12 +15,6 @@ export const Sidepanel: React.FC<SidepanelProps> = ({
   teams,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
-  const recentItems = [
-    "API request feature",
-    "New Documentation",
-    "New dashboard"
-  ];
 
   const handleTeamSelect = async (team: Team) => {
     setSelectedTeam(team);
@@ -72,88 +66,50 @@ export const Sidepanel: React.FC<SidepanelProps> = ({
   };
 
   return (
-    <div className="w-72 bg-gray-50 border-r border-gray-200 h-screen flex flex-col p-4 space-y-3 text-sm relative">
-      <div className="mb-4 relative">
+    <div className="w-72 bg-white bg-opacity-80 backdrop-blur-md border-r border-white border-opacity-30 h-screen flex flex-col p-6 space-y-4 relative">
+      {/* Team Selection */}
+      <div className="mb-6 relative">
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-200 w-full text-left transition-colors"
+          className="flex items-start gap-3 p-3 rounded-xl hover:bg-white hover:bg-opacity-60 w-full text-left transition-colors border border-white border-opacity-20 min-h-[60px]"
         >
           <Image
             src={selectedTeam.logo}
             alt={`${selectedTeam.name} logo`}
-            width={24}
-            height={24}
-            className="rounded-full flex-shrink-0 object-contain"
+            width={28}
+            height={28}
+            className="rounded-full flex-shrink-0 object-contain mt-1"
           />
-          <span className="font-semibold text-lg flex-grow truncate">{selectedTeam.name}</span>
-          <ChevronDown size={16} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+          <span className="font-semibold text-lg flex-grow text-gray-800 leading-tight">{selectedTeam.name}</span>
+          <ChevronDown size={18} className={`transition-transform text-gray-600 flex-shrink-0 mt-1 ${isDropdownOpen ? 'rotate-180' : ''}`} />
         </button>
 
         {isDropdownOpen && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 py-1">
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white bg-opacity-95 backdrop-blur-md border border-white border-opacity-30 rounded-xl shadow-xl z-10 py-2">
             {teams.map((team) => (
               <button
                 key={team.name}
                 onClick={() => handleTeamSelect(team)}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 w-full text-left text-sm"
+                className="flex items-start gap-3 px-4 py-3 hover:bg-blue-50 hover:bg-opacity-80 w-full text-left text-sm transition-colors min-h-[48px]"
               >
                 <Image
                   src={team.logo}
                   alt={`${team.name} logo`}
-                  width={20}
-                  height={20}
-                  className="rounded-full flex-shrink-0 object-contain"
+                  width={24}
+                  height={24}
+                  className="rounded-full flex-shrink-0 object-contain mt-0.5"
                 />
-                <span className="flex-grow truncate">{team.name}</span>
+                <span className="flex-grow text-gray-800 leading-tight">{team.name}</span>
               </button>
             ))}
           </div>
         )}
       </div>
 
-      <button className="w-full bg-white border border-gray-300 rounded-lg py-2.5 text-gray-700 hover:bg-gray-100 transition-colors">
+      {/* New Chat Button */}
+      <button className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl py-3 px-4 transition-colors shadow-lg">
         New Chat
       </button>
-
-      <nav className="space-y-1.5">
-        <a href="#" className="flex items-center gap-3 px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
-          <Clock size={18} />
-          <span>Recents</span>
-        </a>
-        <a href="#" className="flex items-center gap-3 px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
-          <Grid size={18} />
-          <span>Projects</span>
-        </a>
-      </nav>
-
-      <div className="pt-2">
-        <a href="#" className="flex items-center justify-between px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
-          <div className="flex items-center gap-3">
-            <Star size={18} />
-            <span>Favorite Projects</span>
-          </div>
-          <ChevronRight size={16} />
-        </a>
-        <a href="#" className="flex items-center justify-between px-2 py-1.5 text-gray-600 hover:bg-gray-200 rounded-md">
-          <div className="flex items-center gap-3">
-            <Star size={18} />
-            <span>Favorite Chats</span>
-          </div>
-          <ChevronRight size={16} />
-        </a>
-      </div>
-
-      <div className="pt-2 flex-grow overflow-y-auto space-y-1 pr-1">
-        <div className="flex items-center justify-between px-2 py-1.5 text-gray-600">
-          <span className="font-medium">Recent</span>
-          <ChevronDown size={16} />
-        </div>
-        {recentItems.map((item, index) => (
-          <a key={index} href="#" className="block px-2 py-1.5 text-gray-500 hover:bg-gray-200 rounded-md truncate">
-            {item}
-          </a>
-        ))}
-      </div>
     </div>
   );
 }; 

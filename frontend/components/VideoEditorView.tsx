@@ -213,18 +213,18 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-blue-200 via-blue-300 to-blue-400">
       {/* Top Bar */}
-      <div className="border-b bg-white flex items-center justify-between px-6 py-3">
+      <div className="border-b bg-white bg-opacity-80 backdrop-blur-sm flex items-center justify-between px-6 py-3">
         <div className="flex items-center gap-4">
           <button onClick={() => { console.log('VideoEditorView: Back button clicked'); handleGoToHome(); }} className="p-1 text-gray-600 hover:text-gray-900">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="font-medium">browser-use.com</div>
+          <div className="font-medium text-gray-800">browser-use.com</div>
         </div>
 
         <div className="flex items-center gap-3">
-          <button onClick={handlePublish} className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800">
+          <button onClick={handlePublish} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-xl font-semibold transition-colors shadow-lg">
             Publish
           </button>
           <button className="p-1 text-gray-600 hover:text-gray-900">
@@ -236,7 +236,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Video Preview Area */}
-        <div className="flex-1 bg-gray-100 flex items-center justify-center p-8 overflow-auto">
+        <div className="flex-1 bg-white bg-opacity-20 flex items-center justify-center p-8 overflow-auto">
           {recordingUrl ? (
             <video 
               ref={videoRef}
@@ -266,21 +266,23 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
         </div>
 
         {/* Right Sidebar - Simplified */}
-        <div className="w-80 flex flex-col border-l bg-white">
+        <div className="w-80 flex flex-col border-l bg-white bg-opacity-80 backdrop-blur-sm">
           <div className="flex-1 overflow-y-auto">
             {/* Chat Interface Only */}
             <div className="p-6">
               <textarea
                 placeholder="Ask Glimpse to edit this video..."
-                className="w-full p-3 border rounded-lg outline-none text-sm resize-none focus:ring-1 focus:ring-black"
+                className="w-full p-3 border border-blue-200 rounded-xl outline-none text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white bg-opacity-90"
                 rows={3}
               />
               <div className="flex justify-end mt-3">
                 <button
                   type="button"
-                  className="px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-colors"
+                  className="px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 text-white transition-colors font-semibold shadow-lg flex items-center gap-2"
                 >
-                  Generate
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -289,17 +291,17 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
       </div>
 
       {/* Timeline Area */}
-      <div className="bg-gray-900 border-t p-4 flex flex-col gap-4">
+      <div className="bg-white bg-opacity-90 backdrop-blur-sm border-t border-blue-200 p-4 flex flex-col gap-4">
         {/* Timeline Header with Time Markers */}
         <div className="relative h-6">
           {/* Time markers */}
-          <div className="absolute inset-0 flex justify-between items-start text-xs text-gray-400">
+          <div className="absolute inset-0 flex justify-between items-start text-xs text-gray-600">
             {Array.from({ length: Math.ceil(videoDuration / 5) + 1 }).map((_, index) => {
               const time = index * 5;
               if (time <= videoDuration) {
                 return (
                   <div key={time} className="flex flex-col items-center">
-                    <div className="w-px h-2 bg-gray-600 mb-1"></div>
+                    <div className="w-px h-2 bg-blue-300 mb-1"></div>
                     <span>{formatTime(time)}</span>
                   </div>
                 );
@@ -313,7 +315,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
         <div className="relative">
           <div 
             ref={timelineRef}
-            className="h-12 bg-gradient-to-r from-orange-400 to-yellow-500 rounded-lg relative cursor-pointer shadow-lg"
+            className="h-12 bg-gradient-to-r from-blue-400 to-blue-500 rounded-xl relative cursor-pointer shadow-lg"
             onMouseDown={handleTimelineMouseDown}
             onClick={handleTimelineClick}
           >
@@ -332,7 +334,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
         </div>
 
         {/* Zoom Track - Draggable segments */}
-        <div className="relative h-16 bg-gray-800 rounded-lg p-2">
+        <div className="relative h-16 bg-blue-100 bg-opacity-60 rounded-xl p-2">
           <div className="flex gap-2 h-full">
             {/* Sample zoom segments - these will be draggable but non-functional for now */}
             <ZoomSegment 
@@ -365,10 +367,10 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
         {/* Timeline Controls */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => skipTime(-5)} className="p-2 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors">
+            <button onClick={() => skipTime(-5)} className="p-2 hover:bg-blue-200 hover:bg-opacity-60 rounded-xl text-gray-600 hover:text-blue-700 transition-colors">
               <SkipBack size={20} />
             </button>
-            <button onClick={togglePlayPause} className="p-2 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors">
+            <button onClick={togglePlayPause} className="p-2 hover:bg-blue-200 hover:bg-opacity-60 rounded-xl text-gray-600 hover:text-blue-700 transition-colors">
               {isPlaying ? (
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="6" y="4" width="4" height="16"></rect>
@@ -378,17 +380,17 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
                 <Play size={20} />
               )}
             </button>
-            <button onClick={() => skipTime(5)} className="p-2 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors">
+            <button onClick={() => skipTime(5)} className="p-2 hover:bg-blue-200 hover:bg-opacity-60 rounded-xl text-gray-600 hover:text-blue-700 transition-colors">
               <SkipForward size={20} />
             </button>
           </div>
           
-          <div className="text-sm text-gray-400 font-mono">
+          <div className="text-sm text-gray-600 font-mono">
             {formatTime(currentTime)} / {formatTime(videoDuration)}
           </div>
           
           <div className="flex items-center gap-3">
-            <button className="p-2 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors">
+            <button className="p-2 hover:bg-blue-200 hover:bg-opacity-60 rounded-xl text-gray-600 hover:text-blue-700 transition-colors">
               <ZoomOut size={18} />
             </button>
             <input
@@ -396,9 +398,9 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
               min="0"
               max="100"
               defaultValue="50"
-              className="w-24 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+              className="w-24 h-1 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
             />
-            <button className="p-2 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors">
+            <button className="p-2 hover:bg-blue-200 hover:bg-opacity-60 rounded-xl text-gray-600 hover:text-blue-700 transition-colors">
               <ZoomIn size={18} />
             </button>
           </div>

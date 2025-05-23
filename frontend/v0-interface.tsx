@@ -447,25 +447,23 @@ export default function V0Interface() {
 
   // Covers PageState.Home and PageState.Loading
   return (
-    <div className="min-h-screen bg-white flex">
-      <div className={`transition-all duration-300 w-full`}>
-        {currentPage === PageState.Home ? (
-          <HomePage
-            inputText={inputText}
-            setInputText={setInputText}
-            handleSubmit={handleSubmit}
-            previousDemos={previousDemos}
-            selectedTeam={selectedTeam}
-            setSelectedTeam={setSelectedTeam}
-            teams={teams}
-            demoType={demoType}
-            setDemoType={setDemoType}
-            handleSkipAgent={handleSkipAgent}
-          />
-        ) : (
-          <LoadingView submittedText={submittedText} loadingText={loadingText} loadingDots={loadingDots} />
-        )}
-      </div>
-    </div>
+    <>
+      {currentPage === PageState.Home ? (
+        <HomePage
+          inputText={inputText}
+          setInputText={setInputText}
+          handleSubmit={handleSubmit}
+          previousDemos={previousDemos}
+          selectedTeam={selectedTeam}
+          setSelectedTeam={setSelectedTeam}
+          teams={teams}
+          demoType={demoType}
+          setDemoType={setDemoType}
+          handleSkipAgent={handleSkipAgent}
+        />
+      ) : (
+        <LoadingView submittedText={submittedText} loadingText={loadingText} loadingDots={loadingDots} />
+      )}
+    </>
   )
 }
