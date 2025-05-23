@@ -94,7 +94,6 @@ On the top left corner in the left hand panel, click the drop down menu that say
 Type in the following prompt in the text box that says "What would you like to demo today?": 'Generate a demo to show users how they can create a new workflow on databricks by ingesting data from salesforce'
 Click on the create demo button
 Once the page loads, click on the publish button on the top right
-Create a countdown to 1000 seconds, after that countdown is done
 Scroll down and click on the share button
 Stop
 """

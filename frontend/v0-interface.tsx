@@ -238,8 +238,23 @@ export default function V0Interface() {
                 console.log("Job completed for non-Free Run. Transitioning based on intendedEditorType:", intendedEditorType);
                 if (intendedEditorType === "video") {
                   if (message.recording_path) {
-                    setRecordingUrl(message.recording_path as string);
-                    console.log("Recording URL set for video editor:", message.recording_path);
+                    // Apply cache-busting for non-free-roam teams to ensure latest video is loaded
+                    const teamFolderMap: { [key: string]: string } = {
+                      "browser-use": "browser-use",
+                      "github": "github", 
+                      "storylane": "storylane",
+                      "glimpse": "glimpse",
+                      "databricks": "databricks"
+                    };
+                    const folderName = teamFolderMap[selectedTeam.id];
+                    if (folderName) {
+                      const cacheBustingUrl = `http://127.0.0.1:8000/public/${folderName}/demo.mp4?t=${new Date().getTime()}`;
+                      setRecordingUrl(cacheBustingUrl);
+                      console.log("Recording URL set for video editor with cache-busting:", cacheBustingUrl);
+                    } else {
+                      setRecordingUrl(message.recording_path as string);
+                      console.log("Recording URL set for video editor:", message.recording_path);
+                    }
                   }
                   setCurrentPage(PageState.VideoEditor);
                 } else {

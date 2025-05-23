@@ -8,7 +8,7 @@ interface PublishedViewProps {
   slides: Slide[];
   bgColor: string;
   handleStartNewTask: () => void;
-  intendedEditorType: "video" | "screenshot";
+  intendedEditorType: "video" | "interactive demo";
   recordingUrl: string | null;
   handleGoBackToEditor: () => void;
   autoPlayVideo?: boolean;

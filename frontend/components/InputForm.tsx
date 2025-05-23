@@ -4,8 +4,8 @@ interface InputFormProps {
   inputText: string;
   setInputText: (text: string) => void;
   handleSubmit: (e: React.FormEvent) => void;
-  demoType: "video" | "screenshot";
-  setDemoType: (type: "video" | "screenshot") => void;
+  demoType: "video" | "interactive demo";
+  setDemoType: (type: "video" | "interactive demo") => void;
 }
 
 export const InputForm: React.FC<InputFormProps> = ({
@@ -62,11 +62,11 @@ export const InputForm: React.FC<InputFormProps> = ({
       <div className="mt-6 flex justify-center">
         <select
           value={demoType}
-          onChange={(e) => setDemoType(e.target.value as "video" | "screenshot")}
+          onChange={(e) => setDemoType(e.target.value as "video" | "interactive demo")}
           className="bg-white bg-opacity-80 border border-gray-200 rounded-lg px-4 py-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:bg-opacity-100 transition-all backdrop-blur-sm"
         >
           <option value="video">Video</option>
-          <option value="screenshot">Screenshot</option>
+          <option value="interactive demo">Interactive Demo</option>
         </select>
       </div>
     </form>

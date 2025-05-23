@@ -11,8 +11,8 @@ interface HomePageProps {
   selectedTeam: Team;
   setSelectedTeam: (team: Team) => void;
   teams: Team[];
-  demoType: "video" | "screenshot";
-  setDemoType: (type: "video" | "screenshot") => void;
+  demoType: "video" | "interactive demo";
+  setDemoType: (type: "video" | "interactive demo") => void;
   handleSkipAgent?: () => void;
 }
 
