@@ -1943,49 +1943,8 @@ class BrowserSession(BaseModel):
 		return new_filename
 
 	async def _click_with_mouse_movement(self, element_handle, click_delay=None, move_delay=None):
-		"""Use the mouse movement service to move to an element and click it with visual feedback."""
-		page = await self.get_current_page()
-		
-		# Get element position and size
-		box = await element_handle.bounding_box()
-		if not box:
-			raise BrowserError("Cannot get element bounding box for mouse movement")
-		
-		# Calculate target position (center of element)
-		target_x = box["x"] + box["width"] / 2
-		target_y = box["y"] + box["height"] / 2
-		
-		# Update visual cursor if enabled
-		if self._mouse_movement_service.config.show_visual_cursor:
-			# First create cursor if not already created
-			await self._mouse_movement_service.create_visual_cursor(page)
-			
-			# Get current mouse position to start movement
-			current_position = await page.evaluate("""
-				() => { 
-					return { 
-						x: window.__browserUseCursorX || 0, 
-						y: window.__browserUseCursorY || 0 
-					}; 
-				}
-			""")
-			start_x = current_position.get("x", 0)
-			start_y = current_position.get("y", 0)
-			
-			# Generate path points for visual cursor
-			path_points = self._mouse_movement_service._generate_path(
-				start_x, start_y, target_x, target_y
-			)
-			
-			# Move cursor along path
-			for point in path_points:
-				await self._mouse_movement_service.update_visual_cursor(page, point[0], point[1])
-				await asyncio.sleep(move_delay or 0.01)
-			
-			# Show click effect
-			await self._mouse_movement_service.update_visual_cursor(page, target_x, target_y, clicking=True)
-		
-		# Perform the actual click using the service
+		"""Use the mouse movement service to move to an element and click it."""
+		# Simply delegate to the mouse service which handles all the movement and visual feedback
 		await self._mouse_movement_service.click_element_with_movement(
-			page, element_handle, click_delay=click_delay
+			await self.get_current_page(), element_handle, click_delay=click_delay
 		)

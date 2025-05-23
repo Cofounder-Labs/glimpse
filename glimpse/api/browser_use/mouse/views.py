@@ -43,6 +43,6 @@ class MouseMovementConfig(BaseModel):
         description="Probability (0-1) of overshooting the target slightly"
     ) 
     show_visual_cursor: bool = Field(
-        default=False,
+        default=True,
         description="Show a visual cursor in the browser to visualize mouse movements"
     ) 

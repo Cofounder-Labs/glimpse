@@ -24,6 +24,7 @@ class MouseMovementService:
         logger.info(f"🖱️ Mouse Movement Service initialized with pattern={self.config.pattern.value}, enabled={self.config.enabled}")
         self._visual_cursor_initialized = False
         self._last_page_url = None
+        self._stored_position = None  # Store mouse position across page loads
         
     async def get_element_center(self, element: ElementHandle) -> Tuple[int, int]:
         """Get the center coordinates of an element."""
@@ -45,14 +46,35 @@ class MouseMovementService:
                 if (window.__mousePosition) {
                     return window.__mousePosition;
                 }
-                // Default to center of viewport if position is unknown
-                return {
-                    x: window.innerWidth / 2,
-                    y: window.innerHeight / 2
-                };
+                if (window.__browserUseCursorX !== undefined && window.__browserUseCursorY !== undefined) {
+                    return {
+                        x: window.__browserUseCursorX,
+                        y: window.__browserUseCursorY
+                    };
+                }
+                return null; // Don't provide default, let Python handle it
             }
         """)
-        return (position["x"], position["y"])
+        
+        # If we got a position from JavaScript, use it and store it
+        if position:
+            self._stored_position = (position["x"], position["y"])
+            return (position["x"], position["y"])
+        
+        # If we have a stored position from previous page, use it
+        if self._stored_position:
+            return self._stored_position
+        
+        # Only as last resort, default to center of viewport
+        viewport_center = await page.evaluate("""
+            () => ({
+                x: window.innerWidth / 2,
+                y: window.innerHeight / 2
+            })
+        """)
+        
+        self._stored_position = (viewport_center["x"], viewport_center["y"])
+        return (viewport_center["x"], viewport_center["y"])
     
     async def setup_mouse_tracking(self, page: Page):
         """Set up JavaScript tracking of mouse position."""
@@ -91,21 +113,35 @@ class MouseMovementService:
                 existingCursor.remove();
             }
             
-            // Create cursor element
+            // Create cursor element using CSS to show a realistic mouse pointer
             const cursor = document.createElement('div');
             cursor.id = 'browser-use-visual-cursor';
             cursor.style.position = 'fixed';
-            cursor.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
-            cursor.style.borderRadius = '50%';
-            cursor.style.width = '25px';
-            cursor.style.height = '25px';
+            cursor.style.width = '20px';
+            cursor.style.height = '20px';
             cursor.style.top = '0';
             cursor.style.left = '0';
             cursor.style.zIndex = '9999999';
             cursor.style.pointerEvents = 'none';
             cursor.style.transition = 'transform 0.1s ease-out';
-            cursor.style.boxShadow = '0 0 10px 2px yellow';
-            cursor.style.border = '2px solid white';
+            
+            // Create realistic mouse pointer using CSS
+            cursor.style.background = `
+                linear-gradient(45deg, transparent 40%, white 40%, white 50%, black 50%, black 60%, white 60%),
+                linear-gradient(-45deg, transparent 40%, white 40%, white 50%, black 50%, black 60%, white 60%)
+            `;
+            cursor.style.clipPath = 'polygon(0% 0%, 0% 70%, 20% 55%, 35% 100%, 50% 85%, 30% 50%, 100% 0%)';
+            cursor.style.filter = 'drop-shadow(1px 1px 2px rgba(0,0,0,0.8))';
+            
+            // Fallback: use a more realistic white pointer with black outline
+            cursor.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 20 20" style="pointer-events: none;">
+                    <path d="M0,0 L0,14 L4,10 L7,10 L12,20 L14,19 L9,9 L12,9 L0,0 Z" 
+                          fill="black" 
+                          stroke="white" 
+                          stroke-width="2"/>
+                </svg>
+            `;
             
             document.body.appendChild(cursor);
             
@@ -117,9 +153,16 @@ class MouseMovementService:
         """
         await page.evaluate(script)
         self._visual_cursor_initialized = True
+        
+        # Position the cursor at the stored location if available
+        if self._stored_position:
+            await self.update_visual_cursor(page, self._stored_position[0], self._stored_position[1])
     
     async def update_visual_cursor(self, page: Page, x: int, y: int, clicking: bool = False):
         """Update the position of the visual cursor."""
+        # Store the new position
+        self._stored_position = (x, y)
+        
         script = """
         (params) => {
             const cursor = window.__browserUseVisualCursor;
@@ -137,18 +180,29 @@ class MouseMovementService:
                 
                 // Show click effect
                 if (params.clicking) {
+                    // Change cursor to hand pointer during click
+                    cursor.innerHTML = `
+                        <svg width="20" height="20" viewBox="0 0 20 20" style="pointer-events: none;">
+                            <path d="M8,2 C8,1 9,0 10,0 C11,0 12,1 12,2 L12,6 L13,6 C14,6 15,7 15,8 C15,8 15,9 15,10 L15,12 C15,15 12,18 9,18 L6,18 C4,18 2,16 2,14 L2,10 C2,9 3,8 4,8 L6,8 L6,4 C6,3 7,2 8,2 Z" 
+                                  fill="black" 
+                                  stroke="white" 
+                                  stroke-width="2"/>
+                        </svg>
+                    `;
+                    
                     // Create a click ripple effect
                     const ripple = document.createElement('div');
                     ripple.style.position = 'fixed';
-                    ripple.style.left = (params.x - 25) + 'px';
-                    ripple.style.top = (params.y - 25) + 'px';
-                    ripple.style.width = '50px';
-                    ripple.style.height = '50px';
+                    ripple.style.left = (params.x - 15) + 'px';
+                    ripple.style.top = (params.y - 15) + 'px';
+                    ripple.style.width = '30px';
+                    ripple.style.height = '30px';
                     ripple.style.borderRadius = '50%';
-                    ripple.style.backgroundColor = 'rgba(255, 255, 0, 0.5)';
+                    ripple.style.backgroundColor = 'rgba(0, 123, 255, 0.3)';
+                    ripple.style.border = '2px solid rgba(0, 123, 255, 0.6)';
                     ripple.style.zIndex = '9999998';
                     ripple.style.pointerEvents = 'none';
-                    ripple.style.animation = 'browser-use-ripple 0.5s ease-out';
+                    ripple.style.animation = 'browser-use-ripple 0.6s ease-out';
                     
                     // Add the keyframes if they don't exist
                     if (!document.getElementById('browser-use-ripple-keyframes')) {
@@ -156,7 +210,7 @@ class MouseMovementService:
                         style.id = 'browser-use-ripple-keyframes';
                         style.textContent = `
                             @keyframes browser-use-ripple {
-                                0% { transform: scale(0.5); opacity: 1; }
+                                0% { transform: scale(0.3); opacity: 1; }
                                 100% { transform: scale(1.5); opacity: 0; }
                             }
                         `;
@@ -164,13 +218,21 @@ class MouseMovementService:
                     }
                     
                     document.body.appendChild(ripple);
-                    setTimeout(() => ripple.remove(), 500);
+                    setTimeout(() => ripple.remove(), 600);
                     
-                    // Also change cursor appearance
-                    cursor.style.backgroundColor = 'rgba(255, 0, 0, 1)';
-                    cursor.style.transform = 'scale(0.7)';
+                    // Scale down cursor slightly during click
+                    cursor.style.transform = 'scale(0.9)';
+                    
+                    // Reset cursor back to pointer after click
                     setTimeout(() => {
-                        cursor.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
+                        cursor.innerHTML = `
+                            <svg width="20" height="20" viewBox="0 0 20 20" style="pointer-events: none;">
+                                <path d="M0,0 L0,14 L4,10 L7,10 L12,20 L14,19 L9,9 L12,9 L0,0 Z" 
+                                      fill="black" 
+                                      stroke="white" 
+                                      stroke-width="2"/>
+                            </svg>
+                        `;
                         cursor.style.transform = 'scale(1)';
                     }, 200);
                 }
@@ -267,7 +329,8 @@ class MouseMovementService:
         # Reset visual cursor state when page URL changes to handle navigation
         current_url = page.url
         if hasattr(self, '_last_page_url') and self._last_page_url != current_url:
-            logger.info(f"🖱️ Page navigation detected, resetting visual cursor state")
+            logger.info(f"🖱️ Page navigation detected, preserving cursor position across page load")
+            # Don't reset visual cursor state, just mark it as needing recreation but keep position
             self._visual_cursor_initialized = False
         self._last_page_url = current_url
         
@@ -313,6 +376,9 @@ class MouseMovementService:
             
             # Move mouse to this point
             await page.mouse.move(x, y)
+            
+            # Store the position after moving
+            self._stored_position = (x, y)
             
             # Update visual cursor if enabled
             if self.config.show_visual_cursor:
