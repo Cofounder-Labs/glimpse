@@ -36,6 +36,7 @@ const ZoomSegment: React.FC<ZoomSegmentProps> = ({ duration, label, position, wi
   const [dragWidth, setDragWidth] = useState(width);
   const [dragMode, setDragMode] = useState<'move' | 'resize-left' | 'resize-right'>('move');
   const [cursorStyle, setCursorStyle] = useState('cursor-grab');
+  const [clickStartTime, setClickStartTime] = useState<number>(0);
 
   // Update local state when props change
   useEffect(() => {
@@ -82,6 +83,7 @@ const ZoomSegment: React.FC<ZoomSegmentProps> = ({ duration, label, position, wi
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent timeline from receiving this event
     
     const rect = e.currentTarget.getBoundingClientRect();
     const mode = getMouseMode(e, rect);
@@ -89,6 +91,7 @@ const ZoomSegment: React.FC<ZoomSegmentProps> = ({ duration, label, position, wi
     setIsDragging(true);
     setHasMoved(false);
     setDragMode(mode);
+    setClickStartTime(Date.now());
     
     const startX = e.clientX;
     const startPosition = dragPosition;
@@ -96,9 +99,11 @@ const ZoomSegment: React.FC<ZoomSegmentProps> = ({ duration, label, position, wi
 
     const handleGlobalMouseMove = (e: MouseEvent) => {
       const deltaX = e.clientX - startX;
+      const timeSinceStart = Date.now() - clickStartTime;
       
-      // Mark that we've moved if there's significant movement
-      if (Math.abs(deltaX) > 3) {
+      // Only consider it movement if we've moved more than threshold AND some time has passed
+      // This prevents tiny movements during click from being considered drags
+      if (Math.abs(deltaX) > 5 && timeSinceStart > 100) {
         setHasMoved(true);
       }
       
@@ -128,14 +133,23 @@ const ZoomSegment: React.FC<ZoomSegmentProps> = ({ duration, label, position, wi
     const handleGlobalMouseUp = () => {
       const wasDragging = isDragging;
       const didMove = hasMoved;
+      const clickDuration = Date.now() - clickStartTime;
       
       setIsDragging(false);
       setHasMoved(false);
       setCursorStyle(isSelected ? 'cursor-grab' : 'cursor-pointer');
       
+      console.log(`🖱️ Click info:`, { didMove, clickDuration, segmentId: id });
+      
       // Notify parent of the new position and width only if we actually moved
       if (wasDragging && didMove && onPositionChange) {
         onPositionChange(id, dragPosition, dragWidth);
+      }
+      
+      // If it was a quick click without movement, trigger selection
+      if (!didMove && clickDuration < 300 && onSelect) {
+        console.log(`✅ Selecting zoom segment: ${id}`);
+        onSelect(id);
       }
       
       document.removeEventListener('mousemove', handleGlobalMouseMove);
@@ -164,10 +178,7 @@ const ZoomSegment: React.FC<ZoomSegmentProps> = ({ duration, label, position, wi
       onMouseDown={handleMouseDown}
       onClick={(e) => {
         e.stopPropagation();
-        if (!hasMoved && onSelect) {
-          console.log(`Selecting zoom segment: ${id}`);
-          onSelect(id);
-        }
+        // Selection is now handled in mouseUp event for better reliability
       }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
@@ -370,12 +381,22 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
       const segment = zoomSegments.find(s => s.id === selectedZoomSegment);
       if (segment) {
         const segmentCenter = segment.clickTimestamp || (segment.timestamp + segment.duration / 2);
-        console.log(`Seeking to segment center: ${segmentCenter.toFixed(2)}s for segment ${selectedZoomSegment}`);
+        console.log(`🎯 SEEKING VIDEO: ${segmentCenter.toFixed(2)}s for segment ${selectedZoomSegment}`);
+        console.log(`📹 Video current time before seek: ${videoRef.current.currentTime.toFixed(2)}s`);
         videoRef.current.currentTime = segmentCenter;
         setCurrentTime(segmentCenter);
+        console.log(`📹 Video current time after seek: ${videoRef.current.currentTime.toFixed(2)}s`);
+      } else {
+        console.warn(`❌ Segment not found: ${selectedZoomSegment}`);
       }
+    } else {
+      console.log(`⚠️ Seeking conditions not met:`, {
+        selectedZoomSegment,
+        hasVideo: !!videoRef.current,
+        segmentCount: zoomSegments.length
+      });
     }
-  }, [selectedZoomSegment]);
+  }, [selectedZoomSegment, zoomSegments]);
 
   // Handle ESC key to exit edit mode
   useEffect(() => {
@@ -424,9 +445,19 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
     if (video) {
       const handleLoadedMetadata = () => {
         setVideoDuration(video.duration);
+        console.log('📼 Video metadata loaded:', {
+          duration: video.duration,
+          currentSrc: video.currentSrc,
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight,
+          seekable: video.seekable.length > 0 ? 
+            `${video.seekable.start(0)}-${video.seekable.end(0)}` : 'none'
+        });
       };
       const handleTimeUpdate = () => {
-        setCurrentTime(video.currentTime);
+        if (!isScrubbing) {
+          setCurrentTime(video.currentTime);
+        }
       };
       const handlePlay = () => setIsPlaying(true);
       const handlePause = () => setIsPlaying(false);
@@ -455,17 +486,24 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
   }, [recordingUrl]);
 
   useEffect(() => {
-    if (playheadRef.current && videoDuration > 0) {
+    if (playheadRef.current && videoDuration > 0 && !isScrubbing) {
       const percentage = (currentTime / videoDuration) * 100;
       playheadRef.current.style.left = `${percentage}%`;
-    } else if (playheadRef.current) {
+    } else if (playheadRef.current && !isScrubbing) {
       playheadRef.current.style.left = `0%`;
     }
-  }, [currentTime, videoDuration]);
+  }, [currentTime, videoDuration, isScrubbing]);
 
   const handleTimelineInteraction = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!timelineRef.current || !videoRef.current || videoDuration === 0) return;
-
+    if (!timelineRef.current || !videoRef.current || videoDuration === 0) {
+      console.log('⚠️ Timeline interaction blocked:', {
+        hasTimeline: !!timelineRef.current,
+        hasVideo: !!videoRef.current,
+        videoDuration
+      });
+      return;
+    }
+    
     const timelineRect = timelineRef.current.getBoundingClientRect();
     const clickX = event.clientX - timelineRect.left;
     let newTimeFraction = clickX / timelineRect.width;
@@ -473,46 +511,163 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
     newTimeFraction = Math.max(0, Math.min(1, newTimeFraction));
 
     const newTime = newTimeFraction * videoDuration;
-    videoRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
+    const oldTime = videoRef.current.currentTime;
+    
+    console.log(`🎬 Timeline click:`, {
+      newTime: newTime.toFixed(2),
+      oldTime: oldTime.toFixed(2),
+      percentage: (newTimeFraction * 100).toFixed(1),
+      videoDuration,
+      videoReadyState: videoRef.current.readyState,
+      videoNetworkState: videoRef.current.networkState,
+      seekable: videoRef.current.seekable.length > 0 ? 
+        `${videoRef.current.seekable.start(0)}-${videoRef.current.seekable.end(0)}` : 'none',
+      videoSrc: videoRef.current.src,
+      duration: videoRef.current.duration,
+      buffered: videoRef.current.buffered.length > 0 ? 
+        `${videoRef.current.buffered.start(0)}-${videoRef.current.buffered.end(0)}` : 'none'
+    });
+    
+    // Try to seek
+    try {
+      // Check if video is ready for seeking
+      if (videoRef.current.readyState < 2) {
+        console.warn('⚠️ Video not ready for seeking, readyState:', videoRef.current.readyState);
+        return;
+      }
+      
+      // Check if video supports seeking
+      if (videoRef.current.seekable.length === 0 || 
+          (videoRef.current.seekable.length > 0 && videoRef.current.seekable.end(0) === 0)) {
+        console.warn('⚠️ Video does not support seeking. Seekable range:', 
+          videoRef.current.seekable.length > 0 ? 
+          `${videoRef.current.seekable.start(0)}-${videoRef.current.seekable.end(0)}` : 'none');
+        
+        // Try to force video to reload and become seekable
+        const currentSrc = videoRef.current.src;
+        videoRef.current.load();
+        
+        // Try seeking after a delay
+        setTimeout(() => {
+          if (videoRef.current && videoRef.current.readyState >= 2) {
+            console.log('🔄 Retrying seek after reload...');
+            try {
+              videoRef.current.currentTime = newTime;
+              setCurrentTime(newTime);
+              
+              if (playheadRef.current) {
+                const percentage = (newTimeFraction * 100);
+                playheadRef.current.style.left = `${percentage}%`;
+              }
+            } catch (error) {
+              console.error('❌ Seek failed even after reload:', error);
+            }
+          }
+        }, 500);
+        
+        return;
+      }
+      
+      // Add seeking event listeners temporarily
+      const onSeeking = () => console.log('🔄 Video seeking...');
+      const onSeeked = () => console.log('✅ Video seeked!');
+      const onError = (e: Event) => console.error('❌ Video error:', e);
+      
+      videoRef.current.addEventListener('seeking', onSeeking);
+      videoRef.current.addEventListener('seeked', onSeeked);
+      videoRef.current.addEventListener('error', onError);
+      
+      // Pause video before seeking to prevent conflicts
+      const wasPlaying = !videoRef.current.paused;
+      if (wasPlaying) {
+        videoRef.current.pause();
+      }
+      
+      // Force a slight delay before seeking
+      setTimeout(() => {
+        if (!videoRef.current) return;
+        
+        videoRef.current.currentTime = newTime;
+        setCurrentTime(newTime);
+        
+        // Manually update playhead for immediate visual feedback
+        if (playheadRef.current) {
+          const percentage = (newTimeFraction * 100);
+          playheadRef.current.style.left = `${percentage}%`;
+        }
+        
+        // Resume playing if it was playing before
+        if (wasPlaying) {
+          setTimeout(() => {
+            videoRef.current?.play().catch(e => console.error('Error resuming play:', e));
+          }, 50);
+        }
+        
+        // Clean up event listeners after a delay
+        setTimeout(() => {
+          videoRef.current?.removeEventListener('seeking', onSeeking);
+          videoRef.current?.removeEventListener('seeked', onSeeked);
+          videoRef.current?.removeEventListener('error', onError);
+          
+          // Check if seek actually worked
+          if (videoRef.current) {
+            console.log(`📹 After seek check:`, {
+              expectedTime: newTime.toFixed(2),
+              actualTime: videoRef.current.currentTime.toFixed(2),
+              seekWorked: Math.abs(videoRef.current.currentTime - newTime) < 0.1
+            });
+          }
+        }, 1000);
+      }, 10);
+    } catch (error) {
+      console.error('❌ Error seeking video:', error);
+    }
   };
 
   const handleTimelineMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-    setIsScrubbing(true);
-    setIsDragging(false);
+    console.log('📍 Timeline mouse down', { target: event.target, currentTarget: event.currentTarget });
+    
+    const startX = event.clientX;
+    const startTime = Date.now();
+    let hasMoved = false;
+    
+    // Handle the initial click
     handleTimelineInteraction(event);
     
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      setIsDragging(true);
-      if (!timelineRef.current || !videoRef.current || videoDuration === 0) return;
+      const deltaX = Math.abs(e.clientX - startX);
+      if (deltaX > 3) {
+        hasMoved = true;
+        setIsDragging(true);
+        setIsScrubbing(true);
+      }
       
-      const timelineRect = timelineRef.current.getBoundingClientRect();
-      const clickX = e.clientX - timelineRect.left;
-      let newTimeFraction = clickX / timelineRect.width;
-      
-      newTimeFraction = Math.max(0, Math.min(1, newTimeFraction));
-      
-      const newTime = newTimeFraction * videoDuration;
-      videoRef.current.currentTime = newTime;
-      setCurrentTime(newTime);
+      if (hasMoved && timelineRef.current && videoRef.current && videoDuration > 0) {
+        const timelineRect = timelineRef.current.getBoundingClientRect();
+        const clickX = e.clientX - timelineRect.left;
+        let newTimeFraction = clickX / timelineRect.width;
+        
+        newTimeFraction = Math.max(0, Math.min(1, newTimeFraction));
+        
+        const newTime = newTimeFraction * videoDuration;
+        videoRef.current.currentTime = newTime;
+        setCurrentTime(newTime);
+      }
     };
     
     const handleGlobalMouseUp = () => {
+      const clickDuration = Date.now() - startTime;
+      console.log('📍 Timeline mouse up', { hasMoved, clickDuration });
+      
       setIsScrubbing(false);
+      setIsDragging(false);
+      
       document.removeEventListener('mousemove', handleGlobalMouseMove);
       document.removeEventListener('mouseup', handleGlobalMouseUp);
-      
-      setTimeout(() => setIsDragging(false), 10);
     };
     
     document.addEventListener('mousemove', handleGlobalMouseMove);
     document.addEventListener('mouseup', handleGlobalMouseUp);
-  };
-
-  const handleTimelineClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDragging && !isScrubbing) {
-      handleTimelineInteraction(event);
-    }
   };
 
   const togglePlayPause = () => {
@@ -842,10 +997,9 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
             ref={timelineRef}
             className="h-12 bg-gradient-to-r from-blue-400 to-blue-500 rounded-xl relative cursor-pointer shadow-lg"
             onMouseDown={handleTimelineMouseDown}
-            onClick={handleTimelineClick}
           >
             {/* Timeline info overlay */}
-            <div className="absolute inset-0 flex items-center justify-center text-white font-medium text-sm">
+            <div className="absolute inset-0 flex items-center justify-center text-white font-medium text-sm pointer-events-none">
               {Math.round(videoDuration)}s ⚡ {currentZoomEffect.active ? `${currentZoomEffect.scale.toFixed(1)}x` : '1x'}
               {currentZoomEffect.active && <span className="ml-1 text-yellow-300">🔍</span>}
             </div>

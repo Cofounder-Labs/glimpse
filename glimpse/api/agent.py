@@ -299,12 +299,22 @@ def _convert_to_mp4(input_path: str, output_path: str) -> bool:
         # -crf 23: constant rate factor (quality, lower is better, 18-28 is typical)
         # -c:a aac: audio codec
         # -b:a 128k: audio bitrate
+        # -movflags: Move metadata to beginning for streaming/seeking
+        # -g: Keyframe every 30 frames for better seeking
+        # -keyint_min: Minimum keyframe interval
+        # -sc_threshold: Disable scene change detection for consistent keyframes
+        # -avoid_negative_ts: Ensure proper timestamp handling
         # -y: overwrite output file if it exists
         command = [
             'ffmpeg', '-i', input_path,
             '-vf', 'crop=iw:ih*0.88:0:0',
             '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
             '-c:a', 'aac', '-b:a', '128k',
+            '-movflags', '+faststart',  # Move metadata to beginning for streaming/seeking
+            '-g', '30',  # Keyframe every 30 frames for better seeking
+            '-keyint_min', '30',  # Minimum keyframe interval
+            '-sc_threshold', '0',  # Disable scene change detection for consistent keyframes
+            '-avoid_negative_ts', 'make_zero',  # Ensure proper timestamp handling
             '-y', output_path
         ]
         logger.info(f"Executing ffmpeg command: {' '.join(command)}")
