@@ -95,19 +95,32 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
             "show_visual_cursor": True,  # Enable visual cursor
             "highlight_elements": False,  # Add the context configuration here
             "user_data_dir": str(user_data_dir),  # Use persistent user data directory  # Add extra browser arguments
-            "args": ["--autoplay-policy=no-user-gesture-required", "--no-sandbox"],  # Add extra browser arguments
-            # Set proper window size for consistent recording
+            "args": [
+                "--autoplay-policy=no-user-gesture-required", 
+                "--no-sandbox",
+                "--disable-web-security",  # Prevent CORS issues
+                "--disable-features=VizDisplayCompositor",  # Reduce GPU conflicts
+                "--force-device-scale-factor=1",  # Prevent scaling issues
+                "--disable-background-timer-throttling",  # Prevent performance throttling
+                "--disable-backgrounding-occluded-windows",  # Prevent window management issues
+                "--disable-renderer-backgrounding",  # Keep renderer active
+                "--disable-field-trial-config",  # Disable A/B testing that can cause inconsistencies
+                "--no-first-run",  # Skip first-run experience
+                "--disable-default-apps",  # Disable default apps that might interfere
+            ],
+            # Set proper window size for consistent recording - remove redundant settings
             "window_size": {"width": 1920, "height": 1080},  # Standard HD resolution
-            "viewport": {"width": 1920, "height": 1080},  # Match window size
-            "no_viewport": False,  # Use viewport for consistent sizing
+            "window_position": {"width": 0, "height": 0},  # Position at top-left (0,0)
             "headless": False,  # Ensure headful mode for proper window sizing
+            "no_viewport": True,  # Disable viewport to prevent size conflicts
+            "disable_security": True,  # Simplified security setup
         }
         
         # Only add recording directory if in video mode
         if demo_type == "video" and recording_save_dir:
             profile_kwargs["record_video_dir"] = str(recording_save_dir)
-            # Set high quality recording
-            profile_kwargs["record_video_size"] = {"width": 1920, "height": 1080}  # HD recording
+            # Set high quality recording to match window size exactly
+            profile_kwargs["record_video_size"] = {"width": 1920, "height": 1080}  # Match window size
         
         human_profile = BrowserProfile(**profile_kwargs)
 

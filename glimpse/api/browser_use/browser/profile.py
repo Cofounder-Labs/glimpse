@@ -665,7 +665,7 @@ class BrowserProfile(BrowserConnectArgs, BrowserLaunchPersistentContextArgs, Bro
 					*(CHROME_DISABLE_SECURITY_ARGS if self.disable_security else []),
 					*(CHROME_DETERMINISTIC_RENDERING_ARGS if self.deterministic_rendering else []),
 					*(
-						[f'--window-size={self.window_size["height"]},{self.window_size["width"]}']
+						[f'--window-size={self.window_size["width"]},{self.window_size["height"]}']
 						if self.window_size
 						else (['--start-maximized'] if not self.headless else [])
 					),
