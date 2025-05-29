@@ -96,11 +96,18 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
             "highlight_elements": False,  # Add the context configuration here
             "user_data_dir": str(user_data_dir),  # Use persistent user data directory  # Add extra browser arguments
             "args": ["--autoplay-policy=no-user-gesture-required", "--no-sandbox"],  # Add extra browser arguments
+            # Set proper window size for consistent recording
+            "window_size": {"width": 1920, "height": 1080},  # Standard HD resolution
+            "viewport": {"width": 1920, "height": 1080},  # Match window size
+            "no_viewport": False,  # Use viewport for consistent sizing
+            "headless": False,  # Ensure headful mode for proper window sizing
         }
         
         # Only add recording directory if in video mode
         if demo_type == "video" and recording_save_dir:
             profile_kwargs["record_video_dir"] = str(recording_save_dir)
+            # Set high quality recording
+            profile_kwargs["record_video_size"] = {"width": 1920, "height": 1080}  # HD recording
         
         human_profile = BrowserProfile(**profile_kwargs)
 
