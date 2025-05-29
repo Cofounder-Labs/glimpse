@@ -208,6 +208,24 @@ class BrowserSession(BaseModel):
 		
 		return self
 
+	def start_click_recording(self, recording_dir: Optional[str] = None):
+		"""Start recording click events during the session."""
+		if hasattr(self, '_mouse_movement_service') and self._mouse_movement_service:
+			self._mouse_movement_service.start_recording(recording_dir)
+			logger.info(f"📹 Started click recording for session")
+		else:
+			logger.warning(f"📹 Cannot start click recording: mouse movement service not initialized")
+
+	def stop_click_recording(self) -> List[dict]:
+		"""Stop recording click events and return the recorded data."""
+		if hasattr(self, '_mouse_movement_service') and self._mouse_movement_service:
+			click_data = self._mouse_movement_service.stop_recording()
+			logger.info(f"📹 Stopped click recording for session, recorded {len(click_data)} clicks")
+			return click_data
+		else:
+			logger.warning(f"📹 Cannot stop click recording: mouse movement service not initialized")
+			return []
+
 	async def start(self) -> Self:
 		# finish initializing/validate the browser_profile:
 		assert isinstance(self.browser_profile, BrowserProfile)

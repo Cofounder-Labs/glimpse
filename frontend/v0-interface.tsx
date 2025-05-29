@@ -22,6 +22,7 @@ export default function V0Interface() {
   const [demoType, setDemoType] = useState<"video" | "interactive demo">("video")
   const [intendedEditorType, setIntendedEditorType] = useState<"video" | "interactive demo">("video")
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null)
+  const [clickData, setClickData] = useState<any[] | null>(null)
 
   // Define teams data
   const teams: Team[] = [
@@ -205,11 +206,15 @@ export default function V0Interface() {
 
                       setArtifactPath(jobDetails.artifact_path || null);
                       setScreenshotsList(jobDetails.screenshots || []);
+                      setClickData(jobDetails.click_data || null);
 
                       if (intendedEditorType === "video") {
                         if (jobDetails.recording_path) {
                           setRecordingUrl(jobDetails.recording_path);
                           console.log("Free Run recording URL set via fetchJobDetails:", jobDetails.recording_path);
+                          if (jobDetails.click_data) {
+                            console.log("Free Run click data received:", jobDetails.click_data.length, "clicks");
+                          }
                         } else {
                           console.error("Free Run (video mode) completed, but no recording_path found in jobDetails.");
                           setCurrentPage(PageState.Home);
@@ -238,6 +243,12 @@ export default function V0Interface() {
                 console.log("Job completed for non-Free Run. Transitioning based on intendedEditorType:", intendedEditorType);
                 if (intendedEditorType === "video") {
                   if (message.recording_path) {
+                    // Set click data if available in the message
+                    if (message.click_data) {
+                      setClickData(message.click_data);
+                      console.log("Click data received for video:", message.click_data.length, "clicks");
+                    }
+                    
                     // Apply cache-busting for non-free-roam teams to ensure latest video is loaded
                     const teamFolderMap: { [key: string]: string } = {
                       "browser-use": "browser-use",
@@ -322,6 +333,7 @@ export default function V0Interface() {
       setScreenshotsList([]);
       setIntendedEditorType(demoType);
       setRecordingUrl(null);
+      setClickData(null);
 
       if (selectedTeam.id === "databricks") { 
         console.log(`${selectedTeam.name} team selected. Bypassing backend demo generation. Intended editor: ${demoType}`);
@@ -464,6 +476,7 @@ export default function V0Interface() {
         handlePublish={handlePublish}
         recordingUrl={recordingUrl}
         handleGoToHome={handleGoToHome}
+        clickData={clickData}
       />
     );
   }

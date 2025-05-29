@@ -121,12 +121,21 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
             max_failures=2,  
             enable_memory=False, # Explicitly disable memory
         )  
+        
+        # Start click recording for video mode
+        if demo_type == "video" and recording_save_dir:
+            human_session.start_click_recording(str(recording_save_dir))
           
         history_result = await agent.run()  
+        
+        # Stop click recording and get click data
+        click_data = []
+        if demo_type == "video":
+            click_data = human_session.stop_click_recording()
           
         # Process history to extract screenshots and interaction data  
         recording_path = str(recording_save_dir.resolve()) if recording_save_dir else ""
-        return _process_history(history_result, recording_path, demo_type)  
+        return _process_history(history_result, recording_path, demo_type, click_data)  
           
     except Exception as e:  
         logger.error(f"Error running browser agent: {str(e)}")  
@@ -170,7 +179,7 @@ def _validate_browser_details(browser_details: dict | None) -> tuple[int, str]:
       
     return port, chrome_path  
   
-def _process_history(history_result: AgentHistoryList, recording_path: str, demo_type: str = "video") -> dict:  
+def _process_history(history_result: AgentHistoryList, recording_path: str, demo_type: str = "video", click_data: list = []) -> dict:  
     """Process agent history to extract screenshots and interaction data"""  
     screenshots_saved = []  
     interactions_data = []  
@@ -255,7 +264,8 @@ def _process_history(history_result: AgentHistoryList, recording_path: str, demo
         "screenshots": screenshots_saved,  
         "interactions": interactions_data,  
         "recording_dir_absolute_path": recording_path if demo_type == "video" else "",  # Full absolute path to the recording directory only in video mode
-        "actual_video_filename": actual_video_filename # Name of the video file, e.g., "xxxx.webm" or "video.mp4"
+        "actual_video_filename": actual_video_filename, # Name of the video file, e.g., "xxxx.webm" or "video.mp4"
+        "click_data": click_data
     }  
   
 def _convert_to_mp4(input_path: str, output_path: str) -> bool:

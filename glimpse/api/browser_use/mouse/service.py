@@ -6,7 +6,10 @@ import asyncio
 import logging
 import math
 import random
+import time
+import json
 from typing import Tuple, List, Optional, Union
+from pathlib import Path
 
 from playwright.async_api import Page, ElementHandle
 
@@ -16,8 +19,26 @@ from .cursor_design import get_mouse_pointer_javascript, get_pointing_hand_javas
 logger = logging.getLogger(__name__)
 
 
+class ClickEvent:
+    """Represents a single click event with timing and position data."""
+    
+    def __init__(self, timestamp: float, x: int, y: int, page_url: str = ""):
+        self.timestamp = timestamp  # Time since recording started
+        self.x = x
+        self.y = y
+        self.page_url = page_url
+    
+    def to_dict(self) -> dict:
+        return {
+            "timestamp": self.timestamp,
+            "x": self.x,
+            "y": self.y,
+            "page_url": self.page_url
+        }
+
+
 class MouseMovementService:
-    """Service for handling realistic mouse movements."""
+    """Service for handling realistic mouse movements with click tracking."""
     
     def __init__(self, config: Optional[MouseMovementConfig] = None):
         """Initialize the mouse movement service with configuration."""
@@ -27,6 +48,56 @@ class MouseMovementService:
         self._last_page_url = None
         self._stored_position = None  # Store mouse position across page loads
         
+        # Click tracking
+        self._recording_start_time = None
+        self._click_events: List[ClickEvent] = []
+        self._recording_dir = None
+        
+    def start_recording(self, recording_dir: Optional[str] = None):
+        """Start tracking clicks for the recording session."""
+        self._recording_start_time = time.time()
+        self._click_events.clear()
+        self._recording_dir = recording_dir
+        logger.info(f"🖱️ Started click tracking for recording session")
+        
+    def stop_recording(self) -> List[dict]:
+        """Stop tracking clicks and return the recorded events."""
+        click_data = [event.to_dict() for event in self._click_events]
+        logger.info(f"🖱️ Stopped click tracking. Recorded {len(click_data)} click events")
+        
+        # Save click data to file if recording directory is provided
+        if self._recording_dir and click_data:
+            self._save_click_data(click_data)
+        
+        return click_data
+    
+    def _save_click_data(self, click_data: List[dict]):
+        """Save click data to a JSON file in the recording directory."""
+        try:
+            recording_path = Path(self._recording_dir)
+            click_file = recording_path / "clicks.json"
+            
+            with open(click_file, 'w') as f:
+                json.dump({
+                    "recording_start_time": self._recording_start_time,
+                    "clicks": click_data
+                }, f, indent=2)
+                
+            logger.info(f"🖱️ Saved click data to {click_file}")
+        except Exception as e:
+            logger.error(f"🖱️ Failed to save click data: {e}")
+    
+    def _record_click(self, x: int, y: int, page_url: str = ""):
+        """Record a click event with current timestamp."""
+        if self._recording_start_time is not None:
+            current_time = time.time()
+            timestamp = current_time - self._recording_start_time
+            
+            click_event = ClickEvent(timestamp, x, y, page_url)
+            self._click_events.append(click_event)
+            
+            logger.info(f"🖱️ Recorded click at ({x}, {y}) at {timestamp:.2f}s on {page_url}")
+    
     async def get_element_center(self, element: ElementHandle) -> Tuple[int, int]:
         """Get the center coordinates of an element."""
         box = await element.bounding_box()
@@ -342,10 +413,14 @@ class MouseMovementService:
         logger.info(f"🖱️ Pausing for {delay:.2f} seconds before clicking")
         await asyncio.sleep(delay)
         
-        # Get current position for visual cursor
+        # Get current position for visual cursor and recording
+        x, y = await self.get_current_mouse_position(page)
+        
         if self.config.show_visual_cursor:
-            x, y = await self.get_current_mouse_position(page)
             await self.update_visual_cursor(page, x, y, clicking=True)
+        
+        # Record the click event if tracking is active
+        self._record_click(x, y, page.url)
         
         # Click the element
         logger.info("🖱️ Clicking element")

@@ -192,6 +192,7 @@ class DemoStatus(BaseModel):
     screenshots: Optional[List[str]] = None # Add new field for screenshots list
     interactions: Optional[List[Dict]] = None # Add new field for interactions data
     recording_path: Optional[str] = None # New field for recording path
+    click_data: Optional[List[Dict]] = None # New field for click tracking data
 
 class BoundingBox(BaseModel):
     x: float      # x-coordinate as percentage of page width (0.0 to 1.0)
@@ -365,6 +366,8 @@ async def process_demo_task(job_id: str, nl_task: str, root_url: str, demo_type:
                 job_update_payload["screenshots"] = agent_result["screenshots"]
             if agent_result.get("interactions"):
                 job_update_payload["interactions"] = agent_result["interactions"]
+            if agent_result.get("click_data"):
+                job_update_payload["click_data"] = agent_result["click_data"]
             
             # Handle recording path - first check for pre-recorded videos, then use agent result
             agent_video_url = None

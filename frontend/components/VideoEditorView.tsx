@@ -14,6 +14,7 @@ interface VideoEditorViewProps {
   handlePublish: () => void;
   recordingUrl: string | null;
   handleGoToHome: () => void;
+  clickData?: any[] | null;
 }
 
 // ZoomSegment component for the draggable purple segments
@@ -80,6 +81,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
   handlePublish,
   recordingUrl,
   handleGoToHome,
+  clickData,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -90,12 +92,91 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [zoomSegments, setZoomSegments] = useState<Array<{
+    timestamp: number;
+    duration: number;
+    label: string;
+    x: number;
+    y: number;
+  }>>([]);
+  const [currentZoomEffect, setCurrentZoomEffect] = useState<{
+    active: boolean;
+    x: number;
+    y: number;
+    scale: number;
+  }>({ active: false, x: 0, y: 0, scale: 1 });
 
   const formatTime = (timeInSeconds: number): string => {
     const minutes = Math.floor(timeInSeconds / 60);
     const seconds = Math.floor(timeInSeconds % 60);
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
+
+  // Generate zoom segments from click data
+  const generateZoomSegments = () => {
+    if (!clickData || !Array.isArray(clickData) || clickData.length === 0) {
+      console.log("No click data available for zoom generation");
+      return [];
+    }
+
+    console.log("Generating zoom segments from", clickData.length, "clicks");
+    
+    return clickData.map((click, index) => ({
+      timestamp: click.timestamp || 0,
+      duration: 2.0, // Default 2 second zoom duration
+      label: `Click ${index + 1}`,
+      x: click.x || 0,
+      y: click.y || 0,
+    }));
+  };
+
+  // Check if current time is within a zoom segment and apply zoom effect
+  const checkAndApplyZoomEffect = () => {
+    const activeSegment = zoomSegments.find(segment => 
+      currentTime >= segment.timestamp && 
+      currentTime <= segment.timestamp + segment.duration
+    );
+
+    if (activeSegment && videoRef.current) {
+      // For now, use the click coordinates directly as percentages
+      // Since we don't have the original video dimensions, we'll assume 
+      // the click coordinates are relative to a standard viewport
+      const xPercent = Math.min(Math.max((activeSegment.x / 1920) * 100, 10), 90); // Assuming 1920px width
+      const yPercent = Math.min(Math.max((activeSegment.y / 1080) * 100, 10), 90); // Assuming 1080px height
+      
+      // Calculate zoom scale (2x zoom for now)
+      const zoomScale = 2.0;
+      
+      setCurrentZoomEffect({
+        active: true,
+        x: xPercent,
+        y: yPercent,
+        scale: zoomScale
+      });
+      
+      console.log(`Applying zoom at ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}% with scale ${zoomScale}`);
+    } else {
+      // Reset zoom when not in an active segment
+      setCurrentZoomEffect({
+        active: false,
+        x: 0,
+        y: 0,
+        scale: 1
+      });
+    }
+  };
+
+  // Update zoom segments when click data changes
+  useEffect(() => {
+    const segments = generateZoomSegments();
+    setZoomSegments(segments);
+    console.log("Generated zoom segments:", segments);
+  }, [clickData]);
+
+  // Apply zoom effect based on current time
+  useEffect(() => {
+    checkAndApplyZoomEffect();
+  }, [currentTime, zoomSegments]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -241,7 +322,15 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
             <video 
               ref={videoRef}
               src={recordingUrl} 
-              className="w-full h-full max-w-full max-h-full rounded-lg shadow-lg bg-black object-contain" 
+              className="w-full h-full max-w-full max-h-full rounded-lg shadow-lg bg-black object-contain transition-transform duration-500 ease-in-out" 
+              style={{
+                transform: currentZoomEffect.active 
+                  ? `scale(${currentZoomEffect.scale})`
+                  : 'scale(1)',
+                transformOrigin: currentZoomEffect.active 
+                  ? `${currentZoomEffect.x}% ${currentZoomEffect.y}%`
+                  : 'center center'
+              }}
               onDoubleClick={togglePlayPause}
               onClick={(e) => {
                 e.stopPropagation();
@@ -336,31 +425,52 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
         {/* Zoom Track - Draggable segments */}
         <div className="relative h-16 bg-blue-100 bg-opacity-60 rounded-xl p-2">
           <div className="flex gap-2 h-full">
-            {/* Sample zoom segments - these will be draggable but non-functional for now */}
-            <ZoomSegment 
-              duration="2.2x" 
-              label="Auto" 
-              position={0} 
-              width={25}
-            />
-            <ZoomSegment 
-              duration="2.2x" 
-              label="Auto" 
-              position={27} 
-              width={25}
-            />
-            <ZoomSegment 
-              duration="2.0x" 
-              label="Auto" 
-              position={54} 
-              width={20}
-            />
-            <ZoomSegment 
-              duration="1.5x" 
-              label="Auto" 
-              position={76} 
-              width={22}
-            />
+            {/* Dynamic zoom segments generated from click data */}
+            {zoomSegments.length > 0 ? (
+              zoomSegments.map((segment, index) => {
+                // Calculate position and width based on video duration and timestamp
+                const positionPercent = videoDuration > 0 ? (segment.timestamp / videoDuration) * 100 : 0;
+                const widthPercent = videoDuration > 0 ? (segment.duration / videoDuration) * 100 : 10;
+                
+                return (
+                  <ZoomSegment 
+                    key={index}
+                    duration={`${segment.duration}s`} 
+                    label={segment.label} 
+                    position={Math.min(positionPercent, 95 - widthPercent)} 
+                    width={Math.min(widthPercent, 20)}
+                  />
+                );
+              })
+            ) : (
+              /* Fallback sample zoom segments if no click data is available */
+              <>
+                <ZoomSegment 
+                  duration="2.2x" 
+                  label="Auto" 
+                  position={0} 
+                  width={25}
+                />
+                <ZoomSegment 
+                  duration="2.2x" 
+                  label="Auto" 
+                  position={27} 
+                  width={25}
+                />
+                <ZoomSegment 
+                  duration="2.0x" 
+                  label="Auto" 
+                  position={54} 
+                  width={20}
+                />
+                <ZoomSegment 
+                  duration="1.5x" 
+                  label="Auto" 
+                  position={76} 
+                  width={22}
+                />
+              </>
+            )}
           </div>
         </div>
 
