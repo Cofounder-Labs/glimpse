@@ -23,16 +23,29 @@ interface ZoomSegmentProps {
   label: string;
   position: number; // percentage
   width: number; // percentage
+  id: string;
+  isSelected?: boolean;
+  onPositionChange?: (id: string, newPosition: number, newWidth: number) => void;
+  onSelect?: (id: string) => void;
 }
 
-const ZoomSegment: React.FC<ZoomSegmentProps> = ({ duration, label, position, width }) => {
+const ZoomSegment: React.FC<ZoomSegmentProps> = ({ duration, label, position, width, id, isSelected, onPositionChange, onSelect }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragPosition, setDragPosition] = useState(position);
+  const [dragWidth, setDragWidth] = useState(width);
+
+  // Update local state when props change
+  useEffect(() => {
+    setDragPosition(position);
+    setDragWidth(width);
+  }, [position, width]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
     setIsDragging(true);
     const startX = e.clientX;
     const startPosition = dragPosition;
+    const startWidth = dragWidth;
 
     const handleMouseMove = (e: MouseEvent) => {
       const deltaX = e.clientX - startX;
@@ -40,13 +53,19 @@ const ZoomSegment: React.FC<ZoomSegmentProps> = ({ duration, label, position, wi
       if (container) {
         const containerWidth = container.getBoundingClientRect().width;
         const deltaPercent = (deltaX / containerWidth) * 100;
-        const newPosition = Math.max(0, Math.min(100 - width, startPosition + deltaPercent));
+        
+        // Only allow horizontal movement and prevent going out of bounds
+        const newPosition = Math.max(0, Math.min(100 - dragWidth, startPosition + deltaPercent));
         setDragPosition(newPosition);
       }
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
+      // Notify parent of the new position
+      if (onPositionChange) {
+        onPositionChange(id, dragPosition, dragWidth);
+      }
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -57,16 +76,26 @@ const ZoomSegment: React.FC<ZoomSegmentProps> = ({ duration, label, position, wi
 
   return (
     <div
-      className={`absolute h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center text-white text-sm font-medium cursor-grab select-none shadow-lg transition-transform ${
+      className={`absolute h-10 ${
+        isSelected 
+          ? 'bg-gradient-to-r from-yellow-400 to-orange-500 ring-2 ring-yellow-300' 
+          : 'bg-gradient-to-r from-purple-500 to-blue-500'
+      } rounded-lg flex items-center justify-center text-white text-sm font-medium cursor-grab select-none shadow-lg transition-all ${
         isDragging ? 'scale-105 cursor-grabbing' : 'hover:scale-102'
       }`}
       style={{ 
         left: `${dragPosition}%`, 
-        width: `${width}%`,
+        width: `${dragWidth}%`,
         top: '50%',
         transform: 'translateY(-50%)'
       }}
       onMouseDown={handleMouseDown}
+      onClick={(e) => {
+        if (!isDragging && onSelect) {
+          e.stopPropagation();
+          onSelect(id);
+        }
+      }}
     >
       <div className="flex items-center gap-1">
         <span className="text-xs opacity-90">⚡</span>
@@ -98,6 +127,8 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
     label: string;
     x: number;
     y: number;
+    clickTimestamp: number;
+    id: string;
   }>>([]);
   const [currentZoomEffect, setCurrentZoomEffect] = useState<{
     active: boolean;
@@ -105,6 +136,8 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
     y: number;
     scale: number;
   }>({ active: false, x: 0, y: 0, scale: 1 });
+  const [selectedZoomSegment, setSelectedZoomSegment] = useState<string | null>(null);
+  const [zoomAreas, setZoomAreas] = useState<Record<string, { x: number; y: number; width: number; height: number }>>({});
 
   const formatTime = (timeInSeconds: number): string => {
     const minutes = Math.floor(timeInSeconds / 60);
@@ -121,13 +154,41 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
 
     console.log("Generating zoom segments from", clickData.length, "clicks");
     
-    return clickData.map((click, index) => ({
-      timestamp: click.timestamp || 0,
-      duration: 2.0, // Default 2 second zoom duration
-      label: `Click ${index + 1}`,
-      x: click.x || 0,
-      y: click.y || 0,
-    }));
+    const segments = clickData.map((click, index) => {
+      const clickTime = click.timestamp || 0;
+      const totalDuration = 2.0; // Total zoom duration
+      const halfDuration = totalDuration / 2; // Half duration on each side of click
+      
+      const segmentId = `zoom-${index}`;
+      
+      // Create default zoom area centered on click position
+      const defaultZoomArea = {
+        x: Math.max(0, Math.min(70, ((click.x || 960) / 1920) * 100 - 15)), // 30% width area centered on click
+        y: Math.max(0, Math.min(70, ((click.y || 540) / 1080) * 100 - 15)), // 30% height area centered on click
+        width: 30,
+        height: 30
+      };
+      
+      // Initialize zoom area for this segment
+      setZoomAreas(prev => ({
+        ...prev,
+        [segmentId]: defaultZoomArea
+      }));
+      
+      // Center the zoom segment around the click time
+      // Click happens at the middle of the segment (peak zoom)
+      return {
+        timestamp: Math.max(0, clickTime - halfDuration), // Start half duration before click
+        duration: totalDuration, // Total duration
+        label: `Click ${index + 1}`,
+        x: click.x || 0,
+        y: click.y || 0,
+        clickTimestamp: clickTime, // Store original click time for reference
+        id: segmentId // Add unique ID for tracking
+      };
+    });
+    
+    return segments;
   };
 
   // Check if current time is within a zoom segment and apply zoom effect
@@ -138,14 +199,47 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
     );
 
     if (activeSegment && videoRef.current) {
-      // For now, use the click coordinates directly as percentages
-      // Since we don't have the original video dimensions, we'll assume 
-      // the click coordinates are relative to a standard viewport
-      const xPercent = Math.min(Math.max((activeSegment.x / 1920) * 100, 10), 90); // Assuming 1920px width
-      const yPercent = Math.min(Math.max((activeSegment.y / 1080) * 100, 10), 90); // Assuming 1080px height
+      // Calculate progress through the zoom segment (0 to 1)
+      const segmentElapsed = currentTime - activeSegment.timestamp;
+      const segmentProgress = segmentElapsed / activeSegment.duration;
       
-      // Calculate zoom scale (2x zoom for now)
-      const zoomScale = 2.0;
+      // Create a smooth zoom curve: ease in, peak in middle, ease out
+      let zoomScale: number;
+      const peakZoom = 2.5;
+      
+      if (segmentProgress < 0.5) {
+        // First half: zoom in (1x to peak)
+        const progress = segmentProgress * 2; // 0 to 1
+        zoomScale = 1 + (peakZoom - 1) * progress;
+      } else {
+        // Second half: zoom out (peak to 1x)
+        const progress = (segmentProgress - 0.5) * 2; // 0 to 1
+        zoomScale = peakZoom - (peakZoom - 1) * progress;
+      }
+      
+      // Ensure minimum zoom scale
+      zoomScale = Math.max(1, zoomScale);
+      
+      // Use zoom area if available, otherwise fall back to click coordinates
+      const zoomArea = zoomAreas[activeSegment.id];
+      let xPercent = 50; // Default to center
+      let yPercent = 50; // Default to center
+      
+      if (zoomArea) {
+        // Use center of the selected zoom area
+        xPercent = zoomArea.x + (zoomArea.width / 2);
+        yPercent = zoomArea.y + (zoomArea.height / 2);
+        console.log(`Using zoom area for ${activeSegment.id}: center at (${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%)`);
+      } else if (activeSegment.x !== undefined && activeSegment.y !== undefined) {
+        // Fallback to click coordinates
+        const videoWidth = 1920; // Assume standard recording width
+        const videoHeight = 1080; // Assume standard recording height
+        
+        xPercent = Math.min(Math.max((activeSegment.x / videoWidth) * 100, 5), 95);
+        yPercent = Math.min(Math.max((activeSegment.y / videoHeight) * 100, 5), 95);
+        
+        console.log(`Using click coordinates for ${activeSegment.id}: (${activeSegment.x}, ${activeSegment.y}) -> (${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%)`);
+      }
       
       setCurrentZoomEffect({
         active: true,
@@ -154,13 +248,13 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
         scale: zoomScale
       });
       
-      console.log(`Applying zoom at ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}% with scale ${zoomScale}`);
+      console.log(`Zoom segment active: t=${currentTime.toFixed(2)}s, progress=${segmentProgress.toFixed(2)}, scale=${zoomScale.toFixed(2)}x`);
     } else {
       // Reset zoom when not in an active segment
       setCurrentZoomEffect({
         active: false,
-        x: 0,
-        y: 0,
+        x: 50,
+        y: 50,
         scale: 1
       });
     }
@@ -170,13 +264,44 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
   useEffect(() => {
     const segments = generateZoomSegments();
     setZoomSegments(segments);
-    console.log("Generated zoom segments:", segments);
+    if (clickData && clickData.length > 0) {
+      console.log("Click data received:", clickData);
+      console.log("Generated zoom segments:", segments);
+    } else {
+      console.log("No click data available, using fallback segments");
+    }
   }, [clickData]);
 
   // Apply zoom effect based on current time
   useEffect(() => {
     checkAndApplyZoomEffect();
   }, [currentTime, zoomSegments]);
+
+  // Handle zoom segment position changes from the timeline
+  const handleZoomSegmentChange = (segmentId: string, newPosition: number, newWidth: number) => {
+    setZoomSegments(prevSegments => 
+      prevSegments.map(segment => {
+        if (segment.id === segmentId) {
+          // Convert timeline position back to timestamp
+          const newTimestamp = videoDuration > 0 ? (newPosition / 100) * videoDuration : segment.timestamp;
+          const newDuration = videoDuration > 0 ? (newWidth / 100) * videoDuration : segment.duration;
+          
+          // Keep the click at the center of the segment
+          const newClickTimestamp = newTimestamp + (newDuration / 2);
+          
+          console.log(`Updated zoom segment ${segmentId}: timestamp=${newTimestamp.toFixed(2)}s, duration=${newDuration.toFixed(2)}s, click at center=${newClickTimestamp.toFixed(2)}s`);
+          
+          return {
+            ...segment,
+            timestamp: newTimestamp,
+            duration: newDuration,
+            clickTimestamp: newClickTimestamp
+          };
+        }
+        return segment;
+      })
+    );
+  };
 
   useEffect(() => {
     const video = videoRef.current;
@@ -357,7 +482,56 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
         {/* Right Sidebar - Simplified */}
         <div className="w-80 flex flex-col border-l bg-white bg-opacity-80 backdrop-blur-sm">
           <div className="flex-1 overflow-y-auto">
-            {/* Chat Interface Only */}
+            {/* Zoom Control Section */}
+            <div className="p-4 border-b border-blue-200">
+              <h3 className="font-semibold text-gray-800 mb-3">Zoom Controls</h3>
+              
+              {/* Zoom Segment Selector */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Zoom Segment:
+                </label>
+                <select 
+                  value={selectedZoomSegment || ''} 
+                  onChange={(e) => setSelectedZoomSegment(e.target.value || null)}
+                  className="w-full p-2 border border-gray-300 rounded-lg text-sm"
+                >
+                  <option value="">No segment selected</option>
+                  {zoomSegments.map((segment) => (
+                    <option key={segment.id} value={segment.id}>
+                      {segment.label} (at {formatTime(segment.clickTimestamp || segment.timestamp + segment.duration/2)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Minimap for selected zoom segment */}
+              {selectedZoomSegment && recordingUrl && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Zoom Area:
+                  </label>
+                  <VideoMinimap
+                    videoRef={videoRef}
+                    selectedArea={zoomAreas[selectedZoomSegment] || null}
+                    onAreaChange={(area) => {
+                      setZoomAreas(prev => ({
+                        ...prev,
+                        [selectedZoomSegment]: area
+                      }));
+                    }}
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Current area: {zoomAreas[selectedZoomSegment] ? 
+                      `${Math.round(zoomAreas[selectedZoomSegment].x)}%, ${Math.round(zoomAreas[selectedZoomSegment].y)}% - ${Math.round(zoomAreas[selectedZoomSegment].width)}×${Math.round(zoomAreas[selectedZoomSegment].height)}%` :
+                      'No area selected'
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Chat Interface */}
             <div className="p-6">
               <textarea
                 placeholder="Ask Glimpse to edit this video..."
@@ -410,7 +584,8 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
           >
             {/* Timeline info overlay */}
             <div className="absolute inset-0 flex items-center justify-center text-white font-medium text-sm">
-              {Math.round(videoDuration)}s ⚡ 1x
+              {Math.round(videoDuration)}s ⚡ {currentZoomEffect.active ? `${currentZoomEffect.scale.toFixed(1)}x` : '1x'}
+              {currentZoomEffect.active && <span className="ml-1 text-yellow-300">🔍</span>}
             </div>
             
             {/* Playhead */}
@@ -435,10 +610,14 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
                 return (
                   <ZoomSegment 
                     key={index}
-                    duration={`${segment.duration}s`} 
+                    duration={`${segment.duration.toFixed(1)}s`} 
                     label={segment.label} 
-                    position={Math.min(positionPercent, 95 - widthPercent)} 
-                    width={Math.min(widthPercent, 20)}
+                    position={Math.min(positionPercent, 100 - widthPercent)} 
+                    width={Math.min(widthPercent, 30)}
+                    id={segment.id}
+                    isSelected={selectedZoomSegment === segment.id}
+                    onPositionChange={handleZoomSegmentChange}
+                    onSelect={(id) => setSelectedZoomSegment(id)}
                   />
                 );
               })
@@ -450,24 +629,40 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
                   label="Auto" 
                   position={0} 
                   width={25}
+                  id="zoom-0"
+                  isSelected={selectedZoomSegment === 'zoom-0'}
+                  onPositionChange={handleZoomSegmentChange}
+                  onSelect={(id) => setSelectedZoomSegment(id)}
                 />
                 <ZoomSegment 
                   duration="2.2x" 
                   label="Auto" 
                   position={27} 
                   width={25}
+                  id="zoom-1"
+                  isSelected={selectedZoomSegment === 'zoom-1'}
+                  onPositionChange={handleZoomSegmentChange}
+                  onSelect={(id) => setSelectedZoomSegment(id)}
                 />
                 <ZoomSegment 
                   duration="2.0x" 
                   label="Auto" 
                   position={54} 
                   width={20}
+                  id="zoom-2"
+                  isSelected={selectedZoomSegment === 'zoom-2'}
+                  onPositionChange={handleZoomSegmentChange}
+                  onSelect={(id) => setSelectedZoomSegment(id)}
                 />
                 <ZoomSegment 
                   duration="1.5x" 
                   label="Auto" 
                   position={76} 
                   width={22}
+                  id="zoom-3"
+                  isSelected={selectedZoomSegment === 'zoom-3'}
+                  onPositionChange={handleZoomSegmentChange}
+                  onSelect={(id) => setSelectedZoomSegment(id)}
                 />
               </>
             )}
@@ -515,6 +710,123 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+};
+
+// VideoMinimap component for selecting zoom areas
+interface VideoMinimapProps {
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  selectedArea: { x: number; y: number; width: number; height: number } | null;
+  onAreaChange: (area: { x: number; y: number; width: number; height: number }) => void;
+}
+
+const VideoMinimap: React.FC<VideoMinimapProps> = ({ videoRef, selectedArea, onAreaChange }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  // Draw video frame to canvas
+  const updateCanvas = () => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video || video.readyState < 2) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Draw current video frame
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Draw selection area
+    if (selectedArea) {
+      const scaleX = canvas.width / 100; // Convert percentage to canvas pixels
+      const scaleY = canvas.height / 100;
+      
+      const areaX = selectedArea.x * scaleX;
+      const areaY = selectedArea.y * scaleY;
+      const areaWidth = selectedArea.width * scaleX;
+      const areaHeight = selectedArea.height * scaleY;
+
+      // Draw semi-transparent overlay
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Clear the selected area
+      ctx.clearRect(areaX, areaY, areaWidth, areaHeight);
+      
+      // Draw selection border
+      ctx.strokeStyle = '#3B82F6';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(areaX, areaY, areaWidth, areaHeight);
+
+      // Draw corner handles
+      const handleSize = 6;
+      ctx.fillStyle = '#3B82F6';
+      ctx.fillRect(areaX - handleSize/2, areaY - handleSize/2, handleSize, handleSize);
+      ctx.fillRect(areaX + areaWidth - handleSize/2, areaY - handleSize/2, handleSize, handleSize);
+      ctx.fillRect(areaX - handleSize/2, areaY + areaHeight - handleSize/2, handleSize, handleSize);
+      ctx.fillRect(areaX + areaWidth - handleSize/2, areaY + areaHeight - handleSize/2, handleSize, handleSize);
+    }
+  };
+
+  // Update canvas when video time changes
+  useEffect(() => {
+    const interval = setInterval(updateCanvas, 100); // Update 10 times per second
+    return () => clearInterval(interval);
+  }, [selectedArea]);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100; // Convert to percentage
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    setIsDragging(true);
+    setDragStart({ x, y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDragging) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const currentX = ((e.clientX - rect.left) / rect.width) * 100;
+    const currentY = ((e.clientY - rect.top) / rect.height) * 100;
+
+    const area = {
+      x: Math.min(dragStart.x, currentX),
+      y: Math.min(dragStart.y, currentY),
+      width: Math.abs(currentX - dragStart.x),
+      height: Math.abs(currentY - dragStart.y)
+    };
+
+    onAreaChange(area);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  return (
+    <div className="relative">
+      <canvas
+        ref={canvasRef}
+        width={200}
+        height={120}
+        className="border border-gray-300 rounded cursor-crosshair"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      />
+      <div className="text-xs text-gray-500 mt-1 text-center">
+        Drag to select zoom area
       </div>
     </div>
   );
