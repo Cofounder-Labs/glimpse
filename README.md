@@ -28,6 +28,13 @@ poetry install
      ```
    - Open the `.env` file and fill in your API keys and any other required configuration values.
 
+5. **Set up Workflow-Use integration (optional):**
+   ```bash
+   python setup_workflow_use.py
+   ```
+   
+   This adds deterministic browser workflow automation capabilities. See [WORKFLOW_USE.md](WORKFLOW_USE.md) for detailed features and usage.
+
 ## Browser Profile Setup (Optional but Recommended)
 
 If you want the agent to have access to your login sessions (e.g., GitHub, Google, etc.), you can set up a persistent Chromium profile:

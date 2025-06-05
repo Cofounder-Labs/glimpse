@@ -1,0 +1,52 @@
+{
+  "workflow_analysis": "The workflow is about searching for cat videos on Google and navigating to a section on short videos. The process involves navigating to Google, performing a search, and interacting with the search results. The variable input needed for this workflow is the search term, which is 'cat videos' in this example.",
+  "name": "Search for Cat Videos",
+  "description": "Automates the process of searching for cat videos on Google and accessing the short videos section.",
+  "version": "1.0",
+  "steps": [
+    {
+      "description": "Navigate to Google's homepage.",
+      "output": null,
+      "timestamp": null,
+      "tabId": null,
+      "type": "navigation",
+      "url": "https://www.google.co.uk/"
+    },
+    {
+      "description": "Input the search term into Google's search box.",
+      "output": null,
+      "timestamp": 1749080174132,
+      "tabId": 410793006,
+      "type": "input",
+      "cssSelector": "textarea.gLFyf[title=\"Search\"][aria-label=\"Search\"][placeholder][autocomplete=\"off\"][id=\"APjFqb\"][name=\"q\"][role=\"combobox\"]",
+      "value": "{search_term}",
+      "xpath": "id(\"APjFqb\")",
+      "elementTag": "TEXTAREA"
+    },
+    {
+      "description": "Press enter to search.",
+      "output": null,
+      "timestamp": 1749080174272,
+      "tabId": 410793006,
+      "type": "key_press",
+      "cssSelector": "textarea.gLFyf[title=\"Search\"][aria-label=\"Search\"][placeholder][autocomplete=\"off\"][id=\"APjFqb\"][name=\"q\"][role=\"combobox\"]",
+      "key": "Enter",
+      "xpath": "id(\"APjFqb\")",
+      "elementTag": "TEXTAREA"
+    },
+    {
+      "description": "Dynamic content interaction is needed as results may vary.",
+      "output": null,
+      "type": "agent",
+      "task": "Select the 'Short videos' section from the search results.",
+      "max_steps": 5
+    }
+  ],
+  "input_schema": [
+    {
+      "name": "search_term",
+      "type": "string",
+      "required": true
+    }
+  ]
+}

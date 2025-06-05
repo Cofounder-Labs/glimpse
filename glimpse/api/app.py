@@ -4,6 +4,7 @@ from pydantic import BaseModel, validator
 from typing import Optional, List, Dict, Set
 import json
 import os
+import sys
 from pathlib import Path
 from .agent import execute_agent
 import asyncio
@@ -13,6 +14,33 @@ import time
 import requests # Added for launch_chrome_with_debugging
 import logging
 from fastapi.staticfiles import StaticFiles # Added for serving static files
+
+# Add workflow-use integration
+workflow_use_path = Path(__file__).parent.parent.parent / "workflow-use-main" / "workflows"
+if workflow_use_path.exists():
+    sys.path.insert(0, str(workflow_use_path))
+
+try:
+    from workflow_use.recorder.service import RecordingService
+    from workflow_use.builder.service import BuilderService
+    from workflow_use import Workflow
+    from langchain_openai import ChatOpenAI
+    WORKFLOW_USE_AVAILABLE = True
+    
+    # Initialize workflow services
+    try:
+        llm_instance = ChatOpenAI(model='gpt-4o')
+        workflow_builder_service = BuilderService(llm=llm_instance)
+        workflow_recording_service = RecordingService()
+    except Exception as e:
+        logging.warning(f"Failed to initialize workflow services: {e}")
+        workflow_builder_service = None
+        workflow_recording_service = None
+except ImportError:
+    logging.warning("workflow-use not found. Workflow recording functionality will be disabled.")
+    WORKFLOW_USE_AVAILABLE = False
+    workflow_builder_service = None
+    workflow_recording_service = None
 
 # Set up logging if not already configured at a higher level
 logger = logging.getLogger(__name__)
@@ -64,6 +92,13 @@ browser_details = {"remote_debugging_port": 9222} # Store port for now
 
 # Variable to store the active mock mode, settable by an endpoint
 ACTIVE_MOCK_MODE: Optional[int] = None
+
+# Workflow recording state
+workflow_recording_status = {"status": "idle"}
+workflow_recording_task: Optional[asyncio.Task] = None
+workflow_recordings_dir = Path(__file__).resolve().parent.parent.parent / "saved_workflows"
+if not workflow_recordings_dir.exists():
+    workflow_recordings_dir.mkdir(parents=True, exist_ok=True)
 
 # Define different mock tasks
 MOCK_TASK_1 = """
@@ -232,6 +267,21 @@ class DemoStep(BaseModel):
     element_selector: str
     url: str
 
+# Workflow recording models
+class WorkflowRecordingRequest(BaseModel):
+    description: Optional[str] = None  # Optional description for the workflow
+
+class WorkflowRecordingStatus(BaseModel):
+    status: str  # "recording", "completed", "failed", "idle"
+    workflow_name: Optional[str] = None
+    workflow_path: Optional[str] = None
+    error: Optional[str] = None
+
+class RunWorkflowRequest(BaseModel):
+    workflow_name: str
+    prompt: Optional[str] = None  # For running workflow as tool
+    variables: Optional[dict] = None  # For running with predefined variables
+
 # Mock mode configuration
 MOCK_MODE = os.getenv("MOCK_MODE", "false").lower() == "true"
 
@@ -242,6 +292,92 @@ async def set_active_mock_mode(request: SetMockModeRequest):
         raise HTTPException(status_code=400, detail="Invalid mock_mode. Must be between 0 and 5, or null.")
     ACTIVE_MOCK_MODE = request.mock_mode
     return {"message": f"Active mock mode set to: {ACTIVE_MOCK_MODE if ACTIVE_MOCK_MODE is not None else 'None (disabled)'}"}
+
+@app.post("/start-workflow-recording", response_model=WorkflowRecordingStatus)
+async def start_workflow_recording(request: WorkflowRecordingRequest):
+    """Start recording a new workflow"""
+    global workflow_recording_status, workflow_recording_task
+    
+    if not WORKFLOW_USE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Workflow recording functionality is not available")
+    
+    if workflow_recording_status["status"] == "recording":
+        raise HTTPException(status_code=400, detail="A workflow recording is already in progress")
+    
+    # Reset status
+    workflow_recording_status = {"status": "recording", "workflow_name": None, "workflow_path": None, "error": None}
+    
+    # Start recording task
+    workflow_recording_task = asyncio.create_task(
+        _perform_workflow_recording(request.description)
+    )
+    
+    return WorkflowRecordingStatus(**workflow_recording_status)
+
+@app.get("/workflow-recording-status", response_model=WorkflowRecordingStatus)
+async def get_workflow_recording_status():
+    """Get the current status of workflow recording"""
+    return WorkflowRecordingStatus(**workflow_recording_status)
+
+@app.post("/run-saved-workflow", response_model=DemoStatus)
+async def run_saved_workflow(request: RunWorkflowRequest, background_tasks: BackgroundTasks):
+    """Run a saved workflow as a demo generation task"""
+    if not WORKFLOW_USE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Workflow functionality is not available")
+    
+    workflow_path = workflow_recordings_dir / f"{request.workflow_name}.workflow.json"
+    if not workflow_path.exists():
+        raise HTTPException(status_code=404, detail=f"Workflow '{request.workflow_name}' not found")
+    
+    job_id = f"workflow_job_{datetime.now().timestamp()}"
+    
+    job_store[job_id] = {
+        "job_id": job_id,
+        "status": "queued",
+        "progress": 0.0,
+        "created_at": datetime.now(),
+        "completed_at": None,
+        "error": None
+    }
+    
+    # Run workflow as a background task
+    background_tasks.add_task(
+        process_workflow_execution_task, 
+        job_id, 
+        str(workflow_path),
+        request.prompt,
+        request.variables
+    )
+    
+    return DemoStatus(**job_store[job_id])
+
+@app.get("/list-saved-workflows")
+async def list_saved_workflows():
+    """List all saved workflows"""
+    if not WORKFLOW_USE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Workflow functionality is not available")
+    
+    workflows = []
+    for workflow_file in workflow_recordings_dir.glob("*.workflow.json"):
+        try:
+            with open(workflow_file, 'r') as f:
+                workflow_data = json.load(f)
+            
+            # Extract the workflow name by removing both .workflow and .json extensions
+            workflow_name = workflow_file.name.replace('.workflow.json', '')
+            
+            workflows.append({
+                "name": workflow_name,
+                "description": workflow_data.get("description", ""),
+                "steps": len(workflow_data.get("steps", [])),
+                "created_at": workflow_data.get("created_at", ""),
+                "file_path": str(workflow_file),
+                "input_schema": workflow_data.get("input_schema", [])
+            })
+        except Exception as e:
+            logger.error(f"Error reading workflow file {workflow_file}: {e}")
+    
+    return {"workflows": workflows}
 
 async def notify_job_completion(job_id: str, status: str):
     """Notify connected WebSocket clients about job completion."""
@@ -256,7 +392,8 @@ async def notify_job_completion(job_id: str, status: str):
             "screenshots": job_data.get("screenshots"),
             "interactions": job_data.get("interactions"),
             "progress": job_data.get("progress"),
-            "error": job_data.get("error")
+            "error": job_data.get("error"),
+            "click_data": job_data.get("click_data")
         }
         # Use a list comprehension to avoid issues with modifying the set while iterating
         connections_to_notify = list(active_connections[job_id])
@@ -447,22 +584,52 @@ async def get_demo_status(job_id: str):
 @app.websocket("/ws/job-status/{job_id}")
 async def websocket_endpoint(websocket: WebSocket, job_id: str):
     await websocket.accept()
+    logger.info(f"WebSocket connection accepted for job {job_id}")
+    
     if job_id not in active_connections:
         active_connections[job_id] = set()
     active_connections[job_id].add(websocket)
+    
     try:
+        # Send current job status immediately upon connection
+        if job_id in job_store:
+            current_status = job_store[job_id]
+            message = {
+                "job_id": job_id,
+                "status": current_status.get("status", "unknown"),
+                "progress": current_status.get("progress", 0),
+                "recording_path": current_status.get("recording_path"),
+                "artifact_path": current_status.get("artifact_path"),
+                "screenshots": current_status.get("screenshots"),
+                "interactions": current_status.get("interactions"),
+                "error": current_status.get("error"),
+                "click_data": current_status.get("click_data")
+            }
+            await websocket.send_json(message)
+            logger.info(f"Sent initial status to WebSocket for job {job_id}: {current_status.get('status', 'unknown')}")
+        
+        # Keep connection alive by waiting for close
         while True:
-            # Keep the connection alive, or receive messages if needed
-            await websocket.receive_text() 
+            try:
+                # Wait for a message or ping from client, but don't require it
+                await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
+            except asyncio.TimeoutError:
+                # Send a ping to keep connection alive
+                await websocket.ping()
+            except WebSocketDisconnect:
+                break
+                
     except WebSocketDisconnect:
-        active_connections[job_id].remove(websocket)
-        if not active_connections[job_id]:
-            del active_connections[job_id]
-    except RuntimeError: # Handle cases where connection is already closed
+        logger.info(f"WebSocket disconnected for job {job_id}")
+    except RuntimeError as e:
+        logger.warning(f"WebSocket runtime error for job {job_id}: {e}")
+    finally:
+        # Clean up connection
         if job_id in active_connections and websocket in active_connections[job_id]:
-             active_connections[job_id].remove(websocket)
+            active_connections[job_id].remove(websocket)
         if job_id in active_connections and not active_connections[job_id]:
-            del active_connections[job_id] 
+            del active_connections[job_id]
+        logger.info(f"WebSocket connection cleaned up for job {job_id}") 
 
 def get_mock_mode_folder(mock_mode: int) -> str:
     """Map mock mode numbers to their corresponding folder names in public directory"""
@@ -512,3 +679,274 @@ def find_prerecorded_video(folder_name: str) -> Optional[str]:
     
     logger.info(f"No video files found in folder: {folder_path}")
     return None 
+
+async def _perform_workflow_recording(description: Optional[str] = None):
+    """Perform the actual workflow recording process"""
+    global workflow_recording_status
+    
+    try:
+        if not workflow_recording_service:
+            raise RuntimeError("Workflow recording service not available")
+        
+        logger.info("Starting workflow recording session...")
+        workflow_recording_status["status"] = "recording"
+        
+        # Capture the workflow
+        captured_recording_model = await workflow_recording_service.capture_workflow()
+        
+        if not captured_recording_model:
+            raise RuntimeError("Recording session ended, but no workflow data was captured")
+        
+        logger.info("Workflow recording captured successfully!")
+        
+        # Generate automatic workflow name based on timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        workflow_name = f"recorded_workflow_{timestamp}"
+        
+        # Save the raw recording temporarily
+        import tempfile
+        with tempfile.NamedTemporaryFile(
+            mode='w',
+            suffix='.json',
+            prefix='temp_recording_',
+            delete=False,
+            dir=workflow_recordings_dir,
+            encoding='utf-8',
+        ) as tmp_file:
+            try:
+                tmp_file.write(captured_recording_model.model_dump_json(indent=2))
+            except AttributeError:
+                json.dump(captured_recording_model, tmp_file, indent=2)
+            temp_recording_path = Path(tmp_file.name)
+        
+        # Build the workflow from the recording
+        if not workflow_builder_service:
+            raise RuntimeError("Workflow builder service not available")
+        
+        workflow_description = description or f"Recorded workflow from {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        
+        logger.info(f"Building workflow from recording: {workflow_description}")
+        workflow_definition = await workflow_builder_service.build_workflow_from_path(
+            temp_recording_path,
+            workflow_description
+        )
+        
+        if not workflow_definition:
+            raise RuntimeError("Failed to build workflow definition from recording")
+        
+        # Save the final workflow
+        final_workflow_path = workflow_recordings_dir / f"{workflow_name}.workflow.json"
+        await workflow_builder_service.save_workflow_to_path(workflow_definition, final_workflow_path)
+        
+        # Clean up temporary file
+        temp_recording_path.unlink(missing_ok=True)
+        
+        # Update status
+        workflow_recording_status.update({
+            "status": "completed",
+            "workflow_name": workflow_name,
+            "workflow_path": str(final_workflow_path),
+            "error": None
+        })
+        
+        logger.info(f"Workflow saved successfully: {final_workflow_path}")
+        
+    except Exception as e:
+        logger.error(f"Error in workflow recording: {e}", exc_info=True)
+        workflow_recording_status.update({
+            "status": "failed",
+            "workflow_name": None,
+            "workflow_path": None,
+            "error": str(e)
+        })
+
+async def process_workflow_execution_task(job_id: str, workflow_path: str, prompt: Optional[str] = None, variables: Optional[dict] = None):
+    """Execute a saved workflow as a demo generation task"""
+    try:
+        job_store[job_id]["status"] = "processing"
+        job_store[job_id]["progress"] = 0.1
+        
+        logger.info(f"Executing workflow: {workflow_path}")
+        
+        # Set up recording directory for workflow (similar to agent.py)
+        project_root_dir = Path(__file__).resolve().parent.parent.parent
+        recording_base_dir = project_root_dir / "recordings"
+        recording_save_dir = recording_base_dir / job_id
+        recording_save_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Workflow recording will be saved to: {recording_save_dir.resolve()}")
+
+        # Load and run the workflow with proper dependencies (similar to agent.py setup)
+        try:
+            from browser_use import Browser
+            from browser_use.browser.profile import BrowserProfile
+            from browser_use.browser.session import BrowserSession
+            from workflow_use.controller.service import WorkflowController
+            
+            # Set up browser profile with recording (similar to agent.py)
+            profile_kwargs = {
+                "use_human_like_mouse": True,
+                "mouse_movement_pattern": "human",
+                "min_mouse_movement_time": 0.3,
+                "max_mouse_movement_time": 1.0,
+                "mouse_speed_variation": 0.4,
+                "show_visual_cursor": True,
+                "highlight_elements": False,
+                "user_data_dir": str(project_root_dir / "chromium_user_data"),
+                "args": [
+                    "--autoplay-policy=no-user-gesture-required", 
+                    "--no-sandbox",
+                    "--disable-web-security",
+                    "--disable-features=VizDisplayCompositor",
+                    "--force-device-scale-factor=1",
+                    "--disable-background-timer-throttling",
+                    "--disable-backgrounding-occluded-windows",
+                    "--disable-renderer-backgrounding",
+                    "--disable-field-trial-config",
+                    "--no-first-run",
+                    "--disable-default-apps",
+                ],
+                "window_size": {"width": 1920, "height": 1080},
+                "window_position": {"width": 0, "height": 0},
+                "headless": False,
+                "no_viewport": True,
+                "disable_security": True,
+                "record_video_dir": str(recording_save_dir),
+                "record_video_size": {"width": 1920, "height": 1080}
+            }
+            
+            browser_profile = BrowserProfile(**profile_kwargs)
+            browser_session = BrowserSession(
+                disable_security=True,
+                browser_profile=browser_profile
+            )
+            
+            controller = WorkflowController()
+            
+            # Load workflow with proper dependencies for agent fallback
+            workflow = Workflow.load_from_file(
+                workflow_path,
+                llm=llm_instance,  # This enables agent fallback
+                browser=browser_session,
+                controller=controller
+            )
+        except ImportError as e:
+            logger.error(f"Missing dependencies for workflow execution: {e}")
+            raise RuntimeError(f"Workflow dependencies not available: {e}")
+        except Exception as e:
+            logger.error(f"Error loading workflow: {e}")
+            raise RuntimeError(f"Failed to load workflow: {e}")
+        
+        job_store[job_id]["progress"] = 0.3
+        
+        # Always run the workflow directly (not as a tool)
+        # Prepare inputs for the workflow
+        workflow_inputs = {}
+        
+        # If variables are provided, use them
+        if variables:
+            logger.info(f"Running workflow with variables: {variables}")
+            workflow_inputs.update(variables)
+        
+        # Handle legacy prompt parameter for backwards compatibility
+        if prompt and not variables:
+            logger.info(f"Running workflow with legacy prompt parameter: {prompt}")
+            # For backwards compatibility, use prompt as search_term if needed
+            if "search_term" not in workflow_inputs:
+                workflow_inputs["search_term"] = prompt
+        elif not workflow_inputs:
+            logger.info("Running workflow without inputs - using defaults where possible")
+            # Only provide defaults if no inputs were specified at all
+            workflow_inputs["search_term"] = "cats"
+        
+        # Start click recording for video editor (similar to agent.py)
+        browser_session.start_click_recording(str(recording_save_dir))
+        
+        logger.info(f"Running workflow with inputs: {workflow_inputs}")
+        result = await workflow.run(workflow_inputs)
+        
+        # Stop click recording and get click data
+        click_data = browser_session.stop_click_recording()
+        
+        job_store[job_id]["progress"] = 0.8
+        
+        # Process recording similar to agent.py
+        workflow_name = Path(workflow_path).stem
+        
+        # Discover and process video file (similar to agent.py)
+        recording_dir_pathobj = Path(recording_save_dir)
+        actual_video_filename = None
+        recording_url = None
+        
+        # Look for video files and convert if needed
+        video_files_webm = list(recording_dir_pathobj.glob("*.webm"))
+        video_files_mp4 = list(recording_dir_pathobj.glob("*.mp4"))
+        
+        if video_files_webm:
+            webm_file_path = video_files_webm[0]
+            mp4_file_path = webm_file_path.with_suffix(".mp4")
+            logger.info(f"Found webm video file: {webm_file_path.name}. Attempting conversion to {mp4_file_path.name}.")
+            
+            # Convert to MP4 using the same function as agent.py
+            from .agent import _convert_to_mp4
+            if _convert_to_mp4(str(webm_file_path), str(mp4_file_path)):
+                actual_video_filename = mp4_file_path.name
+                logger.info(f"Successfully converted {webm_file_path.name} to {actual_video_filename}")
+            else:
+                actual_video_filename = webm_file_path.name
+                logger.warning(f"Conversion failed, using original .webm file: {webm_file_path.name}")
+        elif video_files_mp4:
+            actual_video_filename = video_files_mp4[0].name
+            logger.info(f"Found and using .mp4 video file: {actual_video_filename}")
+        
+        # Create recording URL if video exists
+        if actual_video_filename:
+            job_specific_folder_name = Path(recording_save_dir).name
+            recording_url = f"/recordings/{job_specific_folder_name}/{actual_video_filename}"
+            logger.info(f"Workflow recording available at URL: {recording_url}")
+        
+        # Create basic artifact structure for compatibility
+        run_artifact_folder_name = f"workflow_{job_id.split('_')[-1]}"
+        base_artifacts_path = Path("frontend/public/run_artifacts")
+        artifact_dir = base_artifacts_path / run_artifact_folder_name
+        
+        if not artifact_dir.exists():
+            artifact_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create completion indicator with video info
+        completion_file = artifact_dir / "workflow_completed.json"
+        completion_data = {
+            "workflow_name": workflow_name,
+            "execution_time": datetime.now().isoformat(),
+            "prompt": prompt,
+            "variables": variables,
+            "job_id": job_id,
+            "recording_url": recording_url,
+            "click_data": click_data
+        }
+        
+        with open(completion_file, 'w') as f:
+            json.dump(completion_data, f, indent=2)
+        
+        job_store[job_id].update({
+            "status": "completed",
+            "progress": 1.0,
+            "completed_at": datetime.now(),
+            "artifact_path": f"run_artifacts/{run_artifact_folder_name}",
+            "screenshots": [],  # Workflows use video instead
+            "interactions": [{"type": "workflow_execution", "workflow": workflow_name, "variables": variables}],
+            "recording_path": recording_url,  # Video recording for video editor
+            "click_data": click_data  # Click data for zoom effects
+        })
+        
+        logger.info(f"Workflow execution completed for job {job_id}")
+        
+    except Exception as e:
+        logger.error(f"Error executing workflow for job {job_id}: {e}", exc_info=True)
+        job_store[job_id].update({
+            "status": "failed",
+            "progress": 0.0,
+            "error": str(e),
+            "completed_at": datetime.now()
+        })
+    finally:
+        await notify_job_completion(job_id, job_store.get(job_id, {}).get("status", "failed")) 

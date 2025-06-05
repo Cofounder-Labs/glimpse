@@ -1,27 +1,36 @@
-[project]
+[tool.poetry]
 name = "glimpse"
 version = "0.1.0"
 description = "AI-Assisted Demo Creation via Natural Language and Browser Agent"
 authors = [
-    {name = "Re Solver"},
-    {name = "Ritanshu Dokania"}
+    "Re Solver",
+    "Ritanshu Dokania"
 ]
 readme = "README.md"
-requires-python = ">=3.11,<3.12"
-dependencies = [
-    "fastapi (>=0.109.0,<0.110.0)",
-    "uvicorn[standard] (>=0.34.2,<0.35.0)",
-    "pydantic (>=2.6.0,<3.0.0)",
-    "python-dotenv (>=1.0.0,<2.0.0)",
-    "patchright (>=1.52.3,<2.0.0)",
-    "screeninfo (>=0.8.1,<0.9.0)",
-    "langchain-openai (>=0.3.17,<0.4.0)",
-    "psutil (>=7.0.0,<8.0.0)",
-    "posthog (>=4.0.1,<5.0.0)",
-    "playwright (>=1.52.0,<2.0.0)"
-]
 
+[tool.poetry.dependencies]
+python = ">=3.11,<3.12"
+# Existing glimpse dependencies
+fastapi = ">=0.109.0,<0.116.0"
+uvicorn = {extras = ["standard"], version = ">=0.34.2,<0.35.0"}
+pydantic = ">=2.6.0,<3.0.0"
+python-dotenv = ">=1.0.0,<2.0.0"
+patchright = ">=1.52.3,<2.0.0"
+screeninfo = ">=0.8.1,<0.9.0"
+langchain-openai = ">=0.3.11,<0.4.0"
+psutil = ">=7.0.0,<8.0.0"
+posthog = ">=3.5.0,<5.0.0"
+playwright = ">=1.52.0,<2.0.0"
+# Workflow-use dependencies
+aiofiles = ">=24.1.0"
+browser-use = ">=0.2.4"
+fastmcp = ">=2.3.4"
+typer = ">=0.15.3"
+
+[tool.poetry.group.dev.dependencies]
+build = ">=1.2.2"
+ruff = ">=0.11.8"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

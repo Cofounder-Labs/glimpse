@@ -7,7 +7,7 @@ import uvicorn
 from browser_use import Browser
 from browser_use.browser.profile import BrowserProfile
 from fastapi import FastAPI
-from patchright.async_api import async_playwright as patchright_async_playwright
+from playwright.async_api import async_playwright
 
 # Assuming views.py is correctly located for this import path
 from workflow_use.recorder.views import (
@@ -128,7 +128,7 @@ class RecordingService:
 			)
 
 			# Create and configure browser
-			playwright = await patchright_async_playwright().start()
+			playwright = await async_playwright().start()
 			self.browser = Browser(browser_profile=profile, playwright=playwright)
 
 			print('[Service] Starting browser with extensions...')

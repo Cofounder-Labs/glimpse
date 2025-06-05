@@ -11,7 +11,7 @@ from browser_use import Browser
 
 # Assuming OPENAI_API_KEY is set in the environment
 from langchain_openai import ChatOpenAI
-from patchright.async_api import async_playwright as patchright_async_playwright
+from playwright.async_api import async_playwright
 
 from workflow_use.builder.service import BuilderService
 from workflow_use.controller.service import WorkflowController
@@ -329,7 +329,7 @@ def run_workflow_command(
 		try:
 			# Instantiate Browser and WorkflowController for the Workflow instance
 			# Pass llm_instance for potential agent fallbacks or agentic steps
-			playwright = await patchright_async_playwright().start()
+			playwright = await async_playwright().start()
 
 			browser = Browser(playwright=playwright)
 			controller_instance = WorkflowController()  # Add any necessary config if required

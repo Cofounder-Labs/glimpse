@@ -86,6 +86,40 @@ export default function V0Interface() {
     }
   }, [currentPage, selectedTeam, teams]);
 
+  // Add effect to listen for workflow job events
+  useEffect(() => {
+    const handleWorkflowJobStarted = (event: CustomEvent) => {
+      console.log("Workflow job started:", event.detail);
+      
+      // Check for stored workflow job data
+      const storedJobData = localStorage.getItem('workflow_job_data');
+      if (storedJobData) {
+        try {
+          const jobData = JSON.parse(storedJobData);
+          console.log("Found stored workflow job data:", jobData);
+          
+          // Set up the interface for workflow execution
+          const variablesText = jobData.variables ? Object.entries(jobData.variables).map(([key, value]) => `${key}: ${value}`).join(', ') : 'no variables';
+          setSubmittedText(`Workflow: ${jobData.workflow_name} (${variablesText})`);
+          setJobId(jobData.job_id);
+          setIntendedEditorType(jobData.demo_type);
+          setCurrentPage(PageState.Loading);
+          
+          // Clear the stored data
+          localStorage.removeItem('workflow_job_data');
+        } catch (error) {
+          console.error("Error parsing stored workflow job data:", error);
+        }
+      }
+    };
+
+    window.addEventListener('workflow_job_started', handleWorkflowJobStarted as EventListener);
+    
+    return () => {
+      window.removeEventListener('workflow_job_started', handleWorkflowJobStarted as EventListener);
+    };
+  }, []);
+
   // Dynamically generate slides using useMemo for stability
   const slides: SlideType[] = useMemo(() => {
     console.log("useMemo recalculating slides. Team:", selectedTeam.id, "ArtifactPath:", artifactPath, "ScreenshotsList Length:", screenshotsList.length);
@@ -195,7 +229,10 @@ export default function V0Interface() {
 
           if (message.job_id === jobId) {
             if (message.status === "completed") {
-              if (selectedTeam.id === "free-run") {
+              // Check if this is a workflow job first (job_id starts with "workflow_job_")
+              const isWorkflowJob = jobId && jobId.startsWith("workflow_job_");
+              
+              if (!isWorkflowJob && selectedTeam.id === "free-run") {
                 console.log("Job completed for Free Run. Fetching artifact details...");
                 const fetchJobDetails = async () => {
                   try {
@@ -237,9 +274,28 @@ export default function V0Interface() {
                   } finally {
                     ws.close();
                   }
-                };
-                fetchJobDetails();
-              } else {
+                                  };
+                  fetchJobDetails();
+                } else if (isWorkflowJob) {
+                  console.log("Workflow job completed. Transitioning based on intendedEditorType:", intendedEditorType);
+                  if (intendedEditorType === "video") {
+                    if (message.recording_path) {
+                      // Set click data if available in the message
+                      if (message.click_data) {
+                        setClickData(message.click_data);
+                        console.log("Workflow click data received for video:", message.click_data.length, "clicks");
+                      }
+                      
+                      // For workflow jobs, always use the actual recording path
+                      setRecordingUrl(message.recording_path as string);
+                      console.log("Workflow recording URL set for video editor:", message.recording_path);
+                    }
+                    setCurrentPage(PageState.VideoEditor);
+                  } else {
+                    setCurrentPage(PageState.Editor);
+                  }
+                  ws.close();
+                } else {
                 console.log("Job completed for non-Free Run. Transitioning based on intendedEditorType:", intendedEditorType);
                 if (intendedEditorType === "video") {
                   if (message.recording_path) {
@@ -249,22 +305,31 @@ export default function V0Interface() {
                       console.log("Click data received for video:", message.click_data.length, "clicks");
                     }
                     
-                    // Apply cache-busting for non-free-roam teams to ensure latest video is loaded
-                    const teamFolderMap: { [key: string]: string } = {
-                      "browser-use": "browser-use",
-                      "github": "github", 
-                      "storylane": "storylane",
-                      "glimpse": "glimpse",
-                      "databricks": "databricks"
-                    };
-                    const folderName = teamFolderMap[selectedTeam.id];
-                    if (folderName) {
-                      const cacheBustingUrl = `http://127.0.0.1:8000/public/${folderName}/demo.mp4?t=${new Date().getTime()}`;
-                      setRecordingUrl(cacheBustingUrl);
-                      console.log("Recording URL set for video editor with cache-busting:", cacheBustingUrl);
-                    } else {
+                    // Check if this is a workflow job (job_id starts with "workflow_job_")
+                    const isWorkflowJob = jobId && jobId.startsWith("workflow_job_");
+                    
+                    if (isWorkflowJob) {
+                      // For workflow jobs, always use the actual recording path
                       setRecordingUrl(message.recording_path as string);
-                      console.log("Recording URL set for video editor:", message.recording_path);
+                      console.log("Workflow recording URL set for video editor:", message.recording_path);
+                    } else {
+                      // Apply cache-busting for team-based demos to ensure latest video is loaded
+                      const teamFolderMap: { [key: string]: string } = {
+                        "browser-use": "browser-use",
+                        "github": "github", 
+                        "storylane": "storylane",
+                        "glimpse": "glimpse",
+                        "databricks": "databricks"
+                      };
+                      const folderName = teamFolderMap[selectedTeam.id];
+                      if (folderName) {
+                        const cacheBustingUrl = `http://127.0.0.1:8000/public/${folderName}/demo.mp4?t=${new Date().getTime()}`;
+                        setRecordingUrl(cacheBustingUrl);
+                        console.log("Team demo recording URL set for video editor with cache-busting:", cacheBustingUrl);
+                      } else {
+                        setRecordingUrl(message.recording_path as string);
+                        console.log("Recording URL set for video editor:", message.recording_path);
+                      }
                     }
                   }
                   setCurrentPage(PageState.VideoEditor);

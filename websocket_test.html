@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Test</h1>
+    <div id="output"></div>
+    <script>
+        const jobId = "workflow_job_1749081893.956822";
+        const ws = new WebSocket(`ws://127.0.0.1:8000/ws/job-status/${jobId}`);
+        const output = document.getElementById('output');
+        
+        ws.onopen = () => {
+            output.innerHTML += `<p>WebSocket connected to job ${jobId}</p>`;
+            console.log('WebSocket connected');
+        };
+        
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            output.innerHTML += `<p>Message received: ${JSON.stringify(message, null, 2)}</p>`;
+            console.log('WebSocket message:', message);
+        };
+        
+        ws.onerror = (error) => {
+            output.innerHTML += `<p>WebSocket error: ${error}</p>`;
+            console.error('WebSocket error:', error);
+        };
+        
+        ws.onclose = (event) => {
+            output.innerHTML += `<p>WebSocket closed: ${event.code} - ${event.reason}</p>`;
+            console.log('WebSocket closed');
+        };
+    </script>
+</body>
+</html> 

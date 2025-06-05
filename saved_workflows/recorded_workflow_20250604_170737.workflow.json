@@ -1,0 +1,50 @@
+{
+  "workflow_analysis": "This workflow recording represents a browsing session where the user starts by searching for 'yahoo news' on Google, clicks through to the Yahoo News page, navigates to the Politics section, and clicks on a specific news article. The user's intention seems to be to access and read news content, specifically news articles related to politics on Yahoo News. The workflow involves navigation through Google search results and website interactions via clicks to access the desired news content. A dynamic input like the search query in Google could be considered in a more adaptable version of this workflow, however in this particular workflow the search query is fixed. Thus, no dynamic inputs are needed for this specific workflow.",
+  "name": "Yahoo News Browsing",
+  "description": "This workflow automates navigating to Yahoo News, accessing the Politics section, and selecting a specific article.",
+  "version": "1.0",
+  "steps": [
+    {
+      "description": "Navigate to Google search results page for 'yahoo news'",
+      "output": null,
+      "timestamp": null,
+      "tabId": null,
+      "type": "navigation",
+      "url": "https://www.google.com/search?q=yahoo+news&oq=yahoo+n&gs_lcrp=EgZjaHJvbWUqDQgAEAAYgwEYsQMYgAQyDQgAEAAYgwEYsQMYgAQyBggBEEUYOTINCAIQABiDARixAxiABDINCAMQABiDARixAxiABDINCAQQABiDARixAxiABDINCAUQABiDARixAxiABDIHCAYQABiABDIGCAcQBRhAqAIAsAIA&sourceid=chrome&ie=UTF-8"
+    },
+    {
+      "description": "Click on Yahoo News link from search results",
+      "output": null,
+      "timestamp": 1749082044673,
+      "tabId": 1824703160,
+      "type": "click",
+      "cssSelector": "h3.LC20lb.MBeuO.DKV0Md",
+      "xpath": "id(\"rso\")/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/a[1]/h3[1]",
+      "elementTag": "H3",
+      "elementText": "Yahoo News: Latest and Breaking News, Headlines, Live Updates ..."
+    },
+    {
+      "description": "Click on the Politics section on Yahoo News",
+      "output": null,
+      "timestamp": 1749082047632,
+      "tabId": 1824703160,
+      "type": "click",
+      "cssSelector": "span._yb_1ad2758",
+      "xpath": "id(\"root_2\")/span[1]",
+      "elementTag": "SPAN",
+      "elementText": "Politics"
+    },
+    {
+      "description": "Click on the specific news article in Yahoo Politics section",
+      "output": null,
+      "timestamp": 1749082052768,
+      "tabId": 1824703160,
+      "type": "click",
+      "cssSelector": "h3.cursor-pointer.text-white[id=\"\u00abR1c7n4rnllb\u00bb\"]",
+      "xpath": "id(\"\u00abR1c7n4rnllb\u00bb\")",
+      "elementTag": "H3",
+      "elementText": "US Education Department threatens Columbia University\u2019s accreditation over campus antisemitism concerns"
+    }
+  ],
+  "input_schema": []
+}
