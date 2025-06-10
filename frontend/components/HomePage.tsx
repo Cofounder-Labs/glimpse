@@ -58,7 +58,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                       : "text-gray-600 hover:text-gray-800"
                   }`}
                 >
-                  Create Demo
+                  Prompt to Demo
                 </button>
                 <button
                   type="button"
@@ -69,7 +69,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                       : "text-gray-600 hover:text-gray-800"
                   }`}
                 >
-                  Record Workflow
+                  Workflow to Demo
                 </button>
               </div>
             </div>

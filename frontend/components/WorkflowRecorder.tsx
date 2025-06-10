@@ -173,7 +173,7 @@ export const WorkflowRecorder: React.FC = () => {
       {/* Recording Section */}
       <div className="bg-white rounded-2xl shadow-lg border border-white border-opacity-20 backdrop-blur-sm mb-8">
         <div className="p-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Record New Workflow</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Show Glimpse Your Workflow</h2>
           
           {recordingStatus.status === "idle" && (
             <>
