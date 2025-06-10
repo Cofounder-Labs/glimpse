@@ -353,8 +353,7 @@ export const WorkflowRecorder: React.FC = () => {
                     Perform actions in the browser. Close the browser window when done.
                   </p>
                   <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 inline-flex items-center gap-2">
-                    <Command className="w-4 h-4 text-gray-500" />
-                    <span>Press <kbd className="font-sans font-semibold">{isMac ? '⌘+Q' : 'Ctrl+Q'}</kbd> to stop recording.</span>
+                    <span>Press <kbd className="font-sans font-semibold">{isMac ? '⌘+Q' : 'Ctrl+Q'} in Chromium</kbd> to stop recording.</span>
                   </div>
                 </>
               )}
