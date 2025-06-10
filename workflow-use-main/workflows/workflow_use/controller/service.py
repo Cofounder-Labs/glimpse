@@ -90,7 +90,29 @@ class WorkflowController(Controller):
 					params,
 					timeout_ms=DEFAULT_ACTION_TIMEOUT_MS,
 				)
-				await locator.click(force=True)
+				
+				# Check if browser_session is actually a BrowserSession (despite typing as Browser)
+				# and if it has the mouse movement service enabled
+				if (hasattr(browser_session, '_mouse_movement_service') and 
+				    browser_session._mouse_movement_service and 
+				    browser_session._mouse_movement_service.config.enabled):
+					logger.info("🖱️ Using browser session's mouse movement service for click")
+					try:
+						# Convert locator to ElementHandle for the mouse movement service
+						# Call element_handle() directly on the locator
+						element_handle = await locator.element_handle()
+						if element_handle is None:
+							# If we can't get element handle, fall back to direct click
+							logger.warning("🖱️ Could not get element handle, falling back to direct click")
+							await locator.click(force=True)
+						else:
+							await browser_session._mouse_movement_service.click_element_with_movement(page, element_handle)
+					except Exception as mouse_error:
+						logger.warning(f"🖱️ Mouse movement service failed: {mouse_error}, falling back to direct click")
+						await locator.click(force=True)
+				else:
+					logger.info("🖱️ Using direct Playwright click (mouse service not available or disabled)")
+					await locator.click(force=True)
 
 				msg = f'🖱️  Clicked element with CSS selector: {truncate_selector(selector_used)} (original: {truncate_selector(original_selector)})'
 				logger.info(msg)

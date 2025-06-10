@@ -772,6 +772,10 @@ async def process_workflow_execution_task(job_id: str, workflow_path: str, promp
             profile_kwargs["record_video_dir"] = str(recording_save_dir)
             profile_kwargs["record_video_size"] = {"width": 1920, "height": 1080}
             
+            # Debug: Log mouse overlay configuration
+            logger.info(f"Workflow browser profile mouse config - show_visual_cursor: {profile_kwargs.get('show_visual_cursor', 'NOT SET')}")
+            logger.info(f"Workflow browser profile mouse config - use_human_like_mouse: {profile_kwargs.get('use_human_like_mouse', 'NOT SET')}")
+            
             logger.info(f"Workflow will use saved authentication data")
             
             browser_profile = BrowserProfile(**profile_kwargs)
@@ -779,6 +783,10 @@ async def process_workflow_execution_task(job_id: str, workflow_path: str, promp
                 disable_security=True,
                 browser_profile=browser_profile
             )
+            
+            # Debug: Log final browser profile mouse settings
+            logger.info(f"Final browser profile - show_visual_cursor: {browser_profile.show_visual_cursor}")
+            logger.info(f"Final browser profile - use_human_like_mouse: {browser_profile.use_human_like_mouse}")
             
             controller = WorkflowController()
             

@@ -174,15 +174,19 @@ class MouseMovementService:
     async def create_visual_cursor(self, page: Page):
         """Create a visual cursor element in the page to show mouse movements."""
         if self._visual_cursor_initialized:
+            logger.info("🖱️ Visual cursor already initialized, skipping creation")
             return
             
         logger.info("🖱️ Creating visual cursor indicator")
+        logger.info(f"🖱️ Visual cursor enabled: {self.config.show_visual_cursor}")
         script = get_mouse_pointer_javascript()
         await page.evaluate(script)
         self._visual_cursor_initialized = True
+        logger.info("🖱️ Visual cursor created successfully")
         
         # Position the cursor at the stored location if available
         if self._stored_position:
+            logger.info(f"🖱️ Positioning visual cursor at stored location: {self._stored_position}")
             await self.update_visual_cursor(page, self._stored_position[0], self._stored_position[1])
     
     async def update_visual_cursor(self, page: Page, x: int, y: int, clicking: bool = False):
@@ -351,7 +355,10 @@ class MouseMovementService:
         
         # Create visual cursor if it doesn't exist and visualization is enabled
         if self.config.show_visual_cursor:
+            logger.info("🖱️ Visual cursor enabled in config, attempting to create")
             await self.create_visual_cursor(page)
+        else:
+            logger.info("🖱️ Visual cursor disabled in config, skipping creation")
         
         logger.info(f"🖱️ Starting human-like mouse movement using {self.config.pattern.value} pattern")
         await self.setup_mouse_tracking(page)
