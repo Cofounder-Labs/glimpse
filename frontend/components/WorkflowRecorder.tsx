@@ -179,14 +179,15 @@ export const WorkflowRecorder: React.FC = () => {
             <>
               <div className="mb-6">
                 <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                  Workflow Description (Optional)
+                  Workflow Description
+                  <span className="text-sm text-gray-500 ml-1">(Used for naming - be descriptive!)</span>
                 </label>
                 <input
                   type="text"
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="e.g., Login to admin panel and create user"
+                  placeholder="e.g., Navigate to GitHub and create a new repository with specific settings"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 />
               </div>

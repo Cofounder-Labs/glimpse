@@ -48,6 +48,44 @@ logger = logging.getLogger(__name__)
 if not logger.hasHandlers(): # Avoid adding multiple handlers if already configured
     logging.basicConfig(level=logging.INFO) # Or logging.DEBUG for more verbosity
 
+def _generate_workflow_name(description: Optional[str], timestamp: str) -> str:
+    """Generate a meaningful workflow name from description."""
+    if not description or not description.strip():
+        return f"recorded_workflow_{timestamp}"
+    
+    # Clean the description: remove special characters, limit length
+    import re
+    clean_name = re.sub(r'[^a-zA-Z0-9\s\-_]', '', description.strip())
+    clean_name = re.sub(r'\s+', '_', clean_name)  # Replace spaces with underscores
+    clean_name = clean_name[:50]  # Limit length to 50 characters
+    
+    # Remove leading/trailing underscores
+    clean_name = clean_name.strip('_')
+    
+    # If cleaning resulted in empty string, fall back to default
+    if not clean_name:
+        return f"recorded_workflow_{timestamp}"
+    
+    return f"{clean_name}_{timestamp}"
+
+def _generate_display_name(workflow_name: str, description: str) -> str:
+    """Generate a user-friendly display name for the workflow."""
+    # If we have a meaningful description, use it as the display name
+    if description and description.strip():
+        return description.strip()
+    
+    # If no description, convert the workflow name back to a readable format
+    # Remove timestamp suffix if present (format: name_YYYYMMDD_HHMMSS)
+    import re
+    clean_name = re.sub(r'_\d{8}_\d{6}$', '', workflow_name)
+    
+    # Replace underscores with spaces and title case
+    if clean_name and clean_name != "recorded_workflow":
+        return clean_name.replace('_', ' ').title()
+    
+    # Fallback to original name if all else fails
+    return workflow_name.replace('_', ' ').title()
+
 app = FastAPI(title="Glimpse API", description="API for generating and managing interactive demos")
 
 # CORS Middleware Configuration
@@ -306,8 +344,12 @@ async def list_saved_workflows():
             # Extract the workflow name by removing both .workflow and .json extensions
             workflow_name = workflow_file.name.replace('.workflow.json', '')
             
+            # Generate a user-friendly display name
+            display_name = _generate_display_name(workflow_name, workflow_data.get("description", ""))
+            
             workflows.append({
                 "name": workflow_name,
+                "display_name": display_name,
                 "description": workflow_data.get("description", ""),
                 "steps": len(workflow_data.get("steps", [])),
                 "created_at": workflow_data.get("created_at", ""),
@@ -639,9 +681,9 @@ async def _perform_workflow_recording(description: Optional[str] = None):
         
         logger.info("Workflow recording captured successfully!")
         
-        # Generate automatic workflow name based on timestamp
+        # Generate meaningful workflow name based on description
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        workflow_name = f"recorded_workflow_{timestamp}"
+        workflow_name = _generate_workflow_name(description, timestamp)
         
         # Save the raw recording temporarily
         import tempfile
