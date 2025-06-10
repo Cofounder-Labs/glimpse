@@ -890,17 +890,17 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-blue-200 via-blue-300 to-blue-400">
+    <div className="h-screen flex flex-col bg-gray-50">
       {/* Top Bar */}
-      <div className="border-b bg-white bg-opacity-80 backdrop-blur-sm flex items-center justify-between px-6 py-3">
-        <div className="flex items-center gap-4">
-          <button onClick={() => { console.log('VideoEditorView: Back button clicked'); handleGoToHome(); }} className="p-1 text-gray-600 hover:text-gray-900">
+      <div className="border-b border-gray-200/80 bg-white/80 backdrop-blur-xl flex items-center justify-between px-8 py-4">
+        <div className="flex items-center gap-6">
+          <button onClick={() => { console.log('VideoEditorView: Back button clicked'); handleGoToHome(); }} className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all duration-200">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="font-medium text-gray-800">Back</div>
+          <div className="font-medium text-gray-900 tracking-tight">Back</div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <button 
             onClick={() => {
               // Prepare zoom data for export
@@ -915,11 +915,11 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
               // This will require server-side video processing using FFmpeg or similar
               handlePublish();
             }} 
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-xl font-semibold transition-colors shadow-lg"
+            className="bg-black text-white px-6 py-3 rounded-xl hover:bg-gray-800 transition-all duration-200 font-medium tracking-tight shadow-lg shadow-black/10"
           >
             Publish
           </button>
-          <button className="p-1 text-gray-600 hover:text-gray-900">
+          <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all duration-200">
             <MoreHorizontal className="w-5 h-5" />
           </button>
         </div>
@@ -928,7 +928,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
       {/* Main Content Area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Video Preview Area */}
-        <div className="flex-1 bg-white bg-opacity-20 flex items-center justify-center p-8 overflow-auto">
+        <div className="flex-1 bg-white/40 backdrop-blur-sm flex items-center justify-center p-8 overflow-auto">
           <div className="relative w-full h-full max-w-full max-h-full">
             {recordingUrl ? (
               <>
@@ -1022,11 +1022,11 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
         </div>
 
         {/* Right Sidebar - Simplified */}
-        <div className="w-80 flex flex-col border-l bg-white bg-opacity-80 backdrop-blur-sm">
+        <div className="w-80 flex flex-col border-l border-gray-200/80 bg-white/60 backdrop-blur-xl">
           <div className="flex-1 overflow-y-auto">
             {/* Zoom Control Section */}
-            <div className="p-4 border-b border-blue-200">
-              <h3 className="font-semibold text-gray-800 mb-3">Zoom Controls</h3>
+            <div className="p-6 border-b border-gray-200/80">
+              <h3 className="font-semibold text-gray-900 mb-4 tracking-tight">Zoom Controls</h3>
               
               {/* Zoom Segment Selector */}
               <div className="mb-4">

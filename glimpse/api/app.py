@@ -250,7 +250,7 @@ class WorkflowRecordingRequest(BaseModel):
     description: Optional[str] = None  # Optional description for the workflow
 
 class WorkflowRecordingStatus(BaseModel):
-    status: str  # "recording", "completed", "failed", "idle"
+    status: str  # "recording", "processing", "completed", "failed", "idle"
     workflow_name: Optional[str] = None
     workflow_path: Optional[str] = None
     error: Optional[str] = None
@@ -593,12 +593,21 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str):
         # Keep connection alive by waiting for close
         while True:
             try:
-                # Wait for a message or ping from client, but don't require it
-                await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
+                # Wait for a message from the client to detect disconnection.
+                # We don't actually need the message, just the connection state.
+                await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
             except asyncio.TimeoutError:
-                # Send a ping to keep connection alive
-                await websocket.ping()
+                # This is expected if the client is just listening.
+                # We can send a ping to the client to keep the connection alive
+                # on network infrastructure (like load balancers).
+                # The client can ignore this message.
+                try:
+                    await websocket.send_json({"type": "ping"})
+                except (WebSocketDisconnect, RuntimeError):
+                    # If sending the ping fails, the client is gone.
+                    break
             except WebSocketDisconnect:
+                # The client disconnected gracefully.
                 break
                 
     except WebSocketDisconnect:
@@ -675,6 +684,10 @@ async def _perform_workflow_recording(description: Optional[str] = None):
         
         # Capture the workflow
         captured_recording_model = await workflow_recording_service.capture_workflow()
+        
+        # Update status to processing when browser is closed and we start processing the workflow
+        logger.info("Browser closed, processing workflow...")
+        workflow_recording_status["status"] = "processing"
         
         if not captured_recording_model:
             raise RuntimeError("Recording session ended, but no workflow data was captured")

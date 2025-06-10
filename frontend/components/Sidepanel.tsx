@@ -66,12 +66,12 @@ export const Sidepanel: React.FC<SidepanelProps> = ({
   };
 
   return (
-    <div className="w-72 bg-white bg-opacity-80 backdrop-blur-md border-r border-white border-opacity-30 h-screen flex flex-col p-6 space-y-4 relative">
+    <div className="w-72 bg-gray-50 border-r border-gray-200 h-screen flex flex-col p-6 space-y-4 relative">
       {/* Team Selection */}
       <div className="mb-6 relative">
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="flex items-start gap-3 p-3 rounded-xl hover:bg-white hover:bg-opacity-60 w-full text-left transition-colors border border-white border-opacity-20 min-h-[60px]"
+          className="flex items-start gap-3 p-4 rounded-2xl hover:bg-white hover:shadow-sm w-full text-left transition-all border border-gray-200 min-h-[60px] bg-white"
         >
           <Image
             src={selectedTeam.logo}
@@ -80,17 +80,17 @@ export const Sidepanel: React.FC<SidepanelProps> = ({
             height={28}
             className="rounded-full flex-shrink-0 object-contain mt-1"
           />
-          <span className="font-semibold text-lg flex-grow text-gray-800 leading-tight">{selectedTeam.name}</span>
-          <ChevronDown size={18} className={`transition-transform text-gray-600 flex-shrink-0 mt-1 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+          <span className="font-medium text-lg flex-grow text-gray-900 leading-tight">{selectedTeam.name}</span>
+          <ChevronDown size={18} className={`transition-transform text-gray-500 flex-shrink-0 mt-1 ${isDropdownOpen ? 'rotate-180' : ''}`} />
         </button>
 
         {isDropdownOpen && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-white bg-opacity-95 backdrop-blur-md border border-white border-opacity-30 rounded-xl shadow-xl z-10 py-2">
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-2xl shadow-lg z-10 py-2">
             {teams.map((team) => (
               <button
                 key={team.name}
                 onClick={() => handleTeamSelect(team)}
-                className="flex items-start gap-3 px-4 py-3 hover:bg-blue-50 hover:bg-opacity-80 w-full text-left text-sm transition-colors min-h-[48px]"
+                className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-sm transition-colors min-h-[48px]"
               >
                 <Image
                   src={team.logo}
@@ -107,7 +107,7 @@ export const Sidepanel: React.FC<SidepanelProps> = ({
       </div>
 
       {/* New Chat Button */}
-      <button className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl py-3 px-4 transition-colors shadow-lg">
+      <button className="w-full bg-black hover:bg-gray-800 text-white font-medium rounded-full py-3 px-4 transition-all shadow-sm hover:shadow-md">
         New Chat
       </button>
     </div>
