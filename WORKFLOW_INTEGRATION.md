@@ -96,9 +96,11 @@ workflow-use-main/            # Workflow-use subproject
 
 ## Technical Details
 
-### Automatic Workflow Naming
-- Workflows are automatically named with timestamp: `recorded_workflow_YYYYMMDD_HHMMSS`
-- No manual naming required to streamline the process
+### Automatic Workflow Naming (Improved)
+- Workflows are automatically named using meaningful descriptions from the workflow content
+- Format: `{cleaned_workflow_description}_{YYYYMMDD_HHMMSS}`
+- Falls back to `recorded_workflow_{YYYYMMDD_HHMMSS}` if no meaningful name available
+- Names are automatically cleaned to be filesystem-safe and limited to reasonable length
 
 ### Integration with Demo Flow
 - Workflow execution creates job entries compatible with existing demo system

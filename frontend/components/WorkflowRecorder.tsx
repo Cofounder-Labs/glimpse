@@ -15,6 +15,7 @@ interface WorkflowInputField {
 
 interface SavedWorkflow {
   name: string;
+  display_name: string;
   description: string;
   steps: number;
   created_at: string;
@@ -270,7 +271,7 @@ export const WorkflowRecorder: React.FC = () => {
                   <option value="">Choose a workflow...</option>
                   {savedWorkflows.map((workflow) => (
                     <option key={workflow.name} value={workflow.name}>
-                      {workflow.name} - {workflow.description} ({workflow.steps} steps)
+                      {workflow.display_name} ({workflow.steps} steps)
                     </option>
                   ))}
                 </select>
