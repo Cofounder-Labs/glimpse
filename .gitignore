@@ -178,5 +178,9 @@ cython_debug/
 frontend/public/run_artifacts/
 
 # Chromium user data directory (contains login sessions and browser profile)
-chromium_user_data/
+chromium_user_data*
 frontend/public/.DS_Store
+
+# Recorded workflow files
+recorded_workflow*
+
