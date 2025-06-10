@@ -14,6 +14,7 @@ import time
 import requests # Added for launch_chrome_with_debugging
 import logging
 from fastapi.staticfiles import StaticFiles # Added for serving static files
+from .chrome_manager import chrome_manager
 
 # Add workflow-use integration
 workflow_use_path = Path(__file__).parent.parent.parent / "workflow-use-main" / "workflows"
@@ -137,70 +138,38 @@ Stop
 """
 
 def launch_chrome_with_debugging():
-    """Launch Chrome with remote debugging enabled"""
-    chrome_path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' # This might need to be configurable
-    browser_details["chrome_instance_path"] = None # Initialize
-    browser_details["remote_debugging_port"] = browser_details.get("remote_debugging_port", 9222) # Ensure port is set
-
-    if not os.path.exists(chrome_path):
-        print(f"Chrome not found at {chrome_path}. Please install Chrome or update the path.")
-        browser_details["remote_debugging_port"] = None 
-        return
-
-    browser_details["chrome_instance_path"] = chrome_path # Store the path
-
-    port = browser_details["remote_debugging_port"]
-    # Check if Chrome is already running with remote debugging
+    """Launch Chrome with remote debugging enabled using ChromeManager with multi-instance support"""
     try:
-        response = requests.get(f'http://localhost:{port}/json/version')
-        if response.status_code == 200:
-            print(f"Chrome is already running with remote debugging on port {port}")
-            return
-    except requests.exceptions.ConnectionError:
-        # Chrome is not running with remote debugging on this port, proceed with launch
-        pass
-
-    # Kill any existing Chrome processes with the target remote debugging port
-    # Be cautious with pkill, ensure it's specific enough
-    try:
-        subprocess.run(['pkill', '-f', f'remote-debugging-port={port}'], check=False)
-        time.sleep(1)  # Wait for processes to be killed
-    except FileNotFoundError:
-        print("pkill command not found. Skipping process killing. This might lead to issues if Chrome is already running.")
-
-
-    user_data_dir = f'/tmp/chrome-debug-profile-{port}'
-    if not os.path.exists(user_data_dir):
-        os.makedirs(user_data_dir)
-
-    # Launch Chrome with remote debugging
-    try:
-        subprocess.Popen([
-            chrome_path,
-            f'--remote-debugging-port={port}',
-            f'--user-data-dir={user_data_dir}',
-            'http://localhost:3000',
-            # Add any other flags you were using, like window size/position, if they apply here
-            # f"--window-size={initial_width},{initial_height}",
-            # f"--window-position={initial_x},{initial_y}",
-        ])
-        time.sleep(3)  # Wait for Chrome to start
-        # Verify connection after launch
-        response = requests.get(f'http://localhost:{port}/json/version')
-        if response.status_code == 200:
-            print(f"Launched new Chrome instance with remote debugging on port {port}")
+        # Get available port (don't force 9222 if it's in use)
+        available_port = chrome_manager.find_available_port(9222)
+        
+        # Launch Chrome, allowing existing instances to continue running
+        success, port_used = chrome_manager.launch_chrome_for_debugging(
+            port=available_port,
+            start_url="http://localhost:3000",
+            allow_existing=True
+        )
+        
+        if success:
+            browser_details["remote_debugging_port"] = port_used
+            browser_details["chrome_instance_path"] = chrome_manager.chrome_path
+            
+            # Show summary of Chrome instances
+            summary = chrome_manager.get_chrome_instances_summary()
+            print(f"✅ Chrome launched successfully on port {port_used}")
+            print(f"📊 Total Chrome instances with shared login data: {summary['total_instances']}")
+            print(f"🔧 Debug ports in use: {summary['debug_ports_in_use']}")
+            print(f"💾 Shared user directory: {chrome_manager.user_data_dir}")
+            print("🎉 All instances share the same login sessions!")
         else:
-            print(f"Failed to connect to Chrome on port {port} after launching. Status: {response.status_code}")
             browser_details["remote_debugging_port"] = None
-            # Keep chrome_instance_path as it might be a valid path even if launch/connect failed here
-    except FileNotFoundError:
-        print(f"Failed to launch Chrome. Ensure '{chrome_path}' is correct.")
-        browser_details["remote_debugging_port"] = None
-        browser_details["chrome_instance_path"] = None # Path is invalid if Chrome executable not found
+            browser_details["chrome_instance_path"] = None
+            print(f"❌ Failed to launch Chrome on port {available_port}")
+            
     except Exception as e:
-        print(f"An error occurred while launching Chrome: {e}")
+        print(f"❌ Error in launch_chrome_with_debugging: {e}")
         browser_details["remote_debugging_port"] = None
-        # Keep chrome_instance_path
+        browser_details["chrome_instance_path"] = None
 
 
 @app.on_event("startup")
@@ -782,37 +751,15 @@ async def process_workflow_execution_task(job_id: str, workflow_path: str, promp
             from browser_use.browser.session import BrowserSession
             from workflow_use.controller.service import WorkflowController
             
-            # Set up browser profile with recording (similar to agent.py)
-            profile_kwargs = {
-                "use_human_like_mouse": True,
-                "mouse_movement_pattern": "human",
-                "min_mouse_movement_time": 0.3,
-                "max_mouse_movement_time": 1.0,
-                "mouse_speed_variation": 0.4,
-                "show_visual_cursor": True,
-                "highlight_elements": False,
-                "user_data_dir": str(project_root_dir / "chromium_user_data"),
-                "args": [
-                    "--autoplay-policy=no-user-gesture-required", 
-                    "--no-sandbox",
-                    "--disable-web-security",
-                    "--disable-features=VizDisplayCompositor",
-                    "--force-device-scale-factor=1",
-                    "--disable-background-timer-throttling",
-                    "--disable-backgrounding-occluded-windows",
-                    "--disable-renderer-backgrounding",
-                    "--disable-field-trial-config",
-                    "--no-first-run",
-                    "--disable-default-apps",
-                ],
-                "window_size": {"width": 1920, "height": 1080},
-                "window_position": {"width": 0, "height": 0},
-                "headless": False,
-                "no_viewport": True,
-                "disable_security": True,
-                "record_video_dir": str(recording_save_dir),
-                "record_video_size": {"width": 1920, "height": 1080}
-            }
+            # Set up browser profile with recording and separate user data directory
+            # This avoids Chrome's behavior of opening tabs in existing instances
+            profile_kwargs = chrome_manager.get_profile_kwargs_for_browser_use(
+                recording_save_dir,
+                debug_port=None,  # Let browser-use auto-assign  
+                use_separate_profile=True  # Use separate user data dir with synced login data
+            )
+            
+            logger.info(f"Workflow will use separate user data directory with synced login data")
             
             browser_profile = BrowserProfile(**profile_kwargs)
             browser_session = BrowserSession(
