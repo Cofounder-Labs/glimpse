@@ -184,3 +184,8 @@ frontend/public/.DS_Store
 # Recorded workflow files
 recorded_workflow*
 
+# New additions
+.DS_Store
+/auth_data
+/test_data_temp
+
