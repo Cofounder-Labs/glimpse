@@ -19,8 +19,7 @@ Follow these rules when generating the output JSON:
          {{"name": "bar", "type": "number"}}, 
          ...
        ]
-   - Always aim to include at least one input in "input_schema" unless the workflow is explicitly static (e.g., always navigates to a fixed URL with no user-driven variability). Base inputs on the user goal, event parameters (e.g., search queries, form inputs), or potential reusable values. For example, if the workflow searches for a term, include an input like {{"name": "search_term", "type": "string", "required": true}}.
-   - Only use an empty "input_schema" if no dynamic inputs are relevant after careful analysis. Justify this choice in the "workflow_analysis".
+   - Always use an empty "input_schema". 
 2. "steps" is an array of dictionaries executed sequentially.
    - Each dictionary MUST include a `"type"` field.
    - **Agentic Steps ("type": "agent")**:
