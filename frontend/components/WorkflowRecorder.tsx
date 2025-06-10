@@ -52,43 +52,43 @@ export const WorkflowRecorder: React.FC = () => {
   // Poll for recording status updates
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    
-    if (recordingStatus.status === "recording" || recordingStatus.status === "processing") {
-      interval = setInterval(async () => {
-        try {
-          const response = await fetch("http://127.0.0.1:8000/workflow-recording-status");
-          if (response.ok) {
-            const status = await response.json();
-            
-            // If recording completed, fetch the workflow details to get the display name
-            if (status.status === "completed" && status.workflow_name && !status.display_name) {
-              try {
-                const workflowsResponse = await fetch("http://127.0.0.1:8000/list-saved-workflows");
-                if (workflowsResponse.ok) {
-                  const workflowsData = await workflowsResponse.json();
-                  const completedWorkflow = workflowsData.workflows?.find(
-                    (w: SavedWorkflow) => w.name === status.workflow_name
-                  );
-                  if (completedWorkflow) {
-                    status.display_name = completedWorkflow.display_name;
-                    status.description = completedWorkflow.description;
-                  }
-                }
-              } catch (error) {
-                console.error("Error fetching workflow display name:", error);
-              }
-            }
-            
-            setRecordingStatus(status);
-            
-            if (status.status === "completed" || status.status === "failed") {
-              if (interval) clearInterval(interval);
-            }
-          }
-        } catch (error) {
-          console.error("Error polling recording status:", error);
+
+    const pollStatus = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:8000/workflow-recording-status");
+        if (!response.ok) {
+          console.error("Failed to fetch recording status");
+          return;
         }
-      }, 2000);
+
+        const status = await response.json();
+        setRecordingStatus(status);
+
+        if (status.status === "completed") {
+          if (interval) clearInterval(interval);
+          const workflows = await fetchSavedWorkflows(); // Refreshes and returns the list
+          const completedWorkflow = workflows?.find(
+            (w: SavedWorkflow) => w.name === status.workflow_name
+          );
+          if (completedWorkflow) {
+            setRecordingStatus(prev => ({
+              ...prev,
+              status: "completed",
+              display_name: completedWorkflow.display_name,
+              description: completedWorkflow.description,
+            }));
+          }
+        } else if (status.status === "failed") {
+          if (interval) clearInterval(interval);
+        }
+      } catch (error) {
+        console.error("Error polling recording status:", error);
+        if (interval) clearInterval(interval);
+      }
+    };
+
+    if (recordingStatus.status === "recording" || recordingStatus.status === "processing") {
+      interval = setInterval(pollStatus, 2000);
     }
 
     return () => {
@@ -101,11 +101,14 @@ export const WorkflowRecorder: React.FC = () => {
       const response = await fetch("http://127.0.0.1:8000/list-saved-workflows");
       if (response.ok) {
         const data = await response.json();
-        setSavedWorkflows(data.workflows || []);
+        const workflows = data.workflows || [];
+        setSavedWorkflows(workflows);
+        return workflows;
       }
     } catch (error) {
       console.error("Error fetching saved workflows:", error);
     }
+    return [];
   };
 
   const startRecording = async () => {
@@ -214,24 +217,21 @@ export const WorkflowRecorder: React.FC = () => {
       return;
     }
 
-    // First, get the workflow details to check for input variables
-    const workflowData = savedWorkflows.find(w => w.name === recordingStatus.workflow_name);
+    let workflowData = savedWorkflows.find((w: SavedWorkflow) => w.name === recordingStatus.workflow_name);
+
     if (!workflowData) {
-      // If not in current list, try to fetch it
-      await fetchSavedWorkflows();
-      const updatedWorkflowData = savedWorkflows.find(w => w.name === recordingStatus.workflow_name);
-      if (!updatedWorkflowData) {
-        alert("Workflow not found. Please try again.");
-        return;
-      }
-      setRecentWorkflowData(updatedWorkflowData);
-    } else {
-      setRecentWorkflowData(workflowData);
+      const updatedWorkflows = await fetchSavedWorkflows();
+      workflowData = updatedWorkflows.find((w: SavedWorkflow) => w.name === recordingStatus.workflow_name);
     }
 
-    // Check if workflow has required variables
-    const workflowToRun = workflowData || recentWorkflowData;
-    if (workflowToRun && workflowToRun.input_schema && workflowToRun.input_schema.length > 0) {
+    if (!workflowData) {
+      alert("Workflow not found. Please try again.");
+      return;
+    }
+    
+    setRecentWorkflowData(workflowData);
+    
+    if (workflowData.input_schema && workflowData.input_schema.length > 0) {
       // Show variable input form
       setShowVariableInput(true);
       return;
@@ -353,7 +353,7 @@ export const WorkflowRecorder: React.FC = () => {
                     Perform actions in the browser. Close the browser window when done.
                   </p>
                   <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 inline-flex items-center gap-2">
-                    <span>Press <kbd className="font-sans font-semibold">{isMac ? '⌘+Q' : 'Ctrl+Q'} in Chromium</kbd> to stop recording.</span>
+                    <span>Hold <kbd className="font-sans font-semibold">{isMac ? '⌘+Q' : 'Ctrl+Q'} in Chromium</kbd> to stop recording.</span>
                   </div>
                 </>
               )}
