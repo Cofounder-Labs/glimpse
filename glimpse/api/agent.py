@@ -33,7 +33,7 @@ from screeninfo import get_monitors
 import base64
 from pathlib import Path
 import subprocess
-from .chrome_manager import chrome_manager
+from .auth_manager import auth_manager
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -64,15 +64,15 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
         else:
             logger.info(f"Screenshot mode: No recording will be created")
 
-        # Use ChromeManager for consistent profile configuration with separate user data directory
-        # This avoids Chrome's behavior of opening tabs in existing instances
-        profile_kwargs = chrome_manager.get_profile_kwargs_for_browser_use(
-            recording_save_dir,
-            debug_port=None,  # Let browser-use auto-assign
-            use_separate_profile=True  # Use separate user data dir with synced login data
-        )
+        # Use AuthManager for consistent profile configuration with authentication
+        profile_kwargs = auth_manager.get_browser_profile_kwargs()
         
-        logger.info(f"Agent will use separate user data directory with synced login data")
+        # Add recording configuration if needed
+        if recording_save_dir:
+            profile_kwargs["record_video_dir"] = str(recording_save_dir)
+            profile_kwargs["record_video_size"] = {"width": 1920, "height": 1080}
+        
+        logger.info(f"Agent will use saved authentication data")
         
         human_profile = BrowserProfile(**profile_kwargs)
 
@@ -98,8 +98,18 @@ async def execute_agent(nl_task: str, root_url: str, job_id: str, browser_detail
         if demo_type == "video" and recording_save_dir:
             human_session.start_click_recording(str(recording_save_dir))
           
-        history_result = await agent.run()  
-        
+        try:
+            history_result = await agent.run()
+        finally:
+            # Ensure browser is properly closed after agent execution
+            try:
+                logger.info(f"Closing browser session for agent job {job_id}")
+                human_session.browser_profile.keep_alive = False
+                await human_session.close()
+                logger.info(f"Browser session for agent job {job_id} closed successfully")
+            except Exception as e:
+                logger.warning(f"Error closing browser session for agent job {job_id}: {e}")
+
         # Stop click recording and get click data
         click_data = []
         if demo_type == "video":

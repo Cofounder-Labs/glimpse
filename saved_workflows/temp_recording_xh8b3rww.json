@@ -1,0 +1,25 @@
+{
+  "workflow_analysis": null,
+  "name": "Recorded Workflow",
+  "description": "Recorded on 6/10/2025, 1:20:35 AM",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "description": null,
+      "output": null,
+      "timestamp": 1749543631516,
+      "tabId": 1067414502,
+      "type": "navigation",
+      "url": "https://docs.browser-use.com/cloud/api-v10/get-task-status"
+    },
+    {
+      "description": null,
+      "output": null,
+      "timestamp": 1749543635371,
+      "tabId": 1067414502,
+      "type": "navigation",
+      "url": "https://www.google.com/search?q=google+docs&rlz=1C5OZZY_enUS1154US1154&oq=google+docs&gs_lcrp=EgZjaHJvbWUyDwgAEEUYORiDARixAxiABDIHCAEQABiABDIHCAIQABiABDIKCAMQABixAxiABDIGCAQQRRg8MgYIBRAFGEAyBggGEEUYPDIGCAcQRRg80gEIMTM5NmowajSoAgCwAgA&sourceid=chrome&ie=UTF-8"
+    }
+  ],
+  "input_schema": []
+}

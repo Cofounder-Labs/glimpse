@@ -1,6 +1,7 @@
 import asyncio
 import json
 import pathlib
+import sys
 from typing import Optional
 
 import uvicorn
@@ -21,6 +22,22 @@ from workflow_use.recorder.views import (
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 EXT_DIR = SCRIPT_DIR.parent.parent.parent / 'extension' / '.output' / 'chrome-mv3'
 USER_DATA_DIR = SCRIPT_DIR / 'user_data_dir'
+
+# 🔧 AuthManager integration for consistent Chrome usage with authentication
+try:
+	# Try to import AuthManager if available (when integrated with Glimpse)
+	glimpse_api_path = SCRIPT_DIR.parent.parent.parent.parent / 'glimpse' / 'api'
+	if glimpse_api_path.exists():
+		sys.path.insert(0, str(glimpse_api_path.parent))
+		from api.auth_manager import auth_manager
+		USE_AUTH_MANAGER = True
+		print(f"[Service] Using AuthManager for Chrome integration with authentication")
+	else:
+		USE_AUTH_MANAGER = False
+		print(f"[Service] AuthManager not available, using default Chromium")
+except ImportError:
+	USE_AUTH_MANAGER = False
+	print(f"[Service] AuthManager not available, using default Chromium")
 
 
 class RecordingService:
@@ -83,17 +100,21 @@ class RecordingService:
 	async def _capture_and_signal_final_workflow(self, trigger_reason: str):
 		processed_this_call = False
 		async with self.final_workflow_processed_lock:
-			if not self.final_workflow_processed_flag and self.last_workflow_update_event:
-				print(f'[Service] Capturing final workflow (Trigger: {trigger_reason}).')
-				self.final_workflow_output = self.last_workflow_update_event.payload
-				self.final_workflow_processed_flag = True
+			if not self.final_workflow_processed_flag:
+				self.final_workflow_processed_flag = True  # Mark as processed to prevent race conditions
 				processed_this_call = True
+				if self.last_workflow_update_event:
+					print(f'[Service] Capturing final workflow (Trigger: {trigger_reason}).')
+					self.final_workflow_output = self.last_workflow_update_event.payload
+				else:
+					print(f'[Service] No workflow events recorded. Finalizing empty recording (Trigger: {trigger_reason}).')
+					self.final_workflow_output = None
 
 		if processed_this_call:
-			print('[Service] Final workflow captured. Setting recording_complete_event.')
-			self.recording_complete_event.set()  # Signal completion to the main method
+			print('[Service] Recording finalized. Setting recording_complete_event.')
+			self.recording_complete_event.set()  # This will unblock the main capture_workflow method
 
-			# If processing was due to RecordingStoppedEvent, also try to close the browser
+			# If processing was due to a manual stop from the extension, try to close the browser
 			if trigger_reason == 'RecordingStoppedEvent' and self.browser:
 				print('[Service] Attempting to close browser due to RecordingStoppedEvent...')
 				try:
@@ -109,23 +130,66 @@ class RecordingService:
 			self.recording_complete_event.set()  # Signal failure
 			return
 
-		# Ensure user data dir exists
-		USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
-		print(f'[Service] Using browser user data directory: {USER_DATA_DIR}')
-
 		try:
-			# Create browser profile with extension support
-			profile = BrowserProfile(
-				headless=False,
-				user_data_dir=str(USER_DATA_DIR.resolve()),
-				args=[
+			# 🔧 Use AuthManager for Chrome integration if available
+			if USE_AUTH_MANAGER:
+				print(f'[Service] Using Chrome via AuthManager for workflow recording')
+				
+				# Get Chrome configuration from AuthManager
+				profile_kwargs = auth_manager.get_browser_profile_kwargs()
+				
+				# Merge extension-specific args with Chrome configuration
+				extension_args = [
 					f'--disable-extensions-except={str(EXT_DIR.resolve())}',
 					f'--load-extension={str(EXT_DIR.resolve())}',
-					'--no-default-browser-check',
-					'--no-first-run',
-				],
-				keep_alive=True,
-			)
+				]
+				
+				# Combine args from AuthManager with extension args
+				combined_args = profile_kwargs['args'] + extension_args
+				
+				# Create browser profile with Chrome + extensions + authentication
+				# Include all auth_manager configuration except args (which we override)
+				auth_config = {k: v for k, v in profile_kwargs.items() if k != 'args' and k != 'executable_path'}
+				
+				# The recording extension requires a persistent user data directory to function correctly.
+				# We will use the one defined in the service, while still leveraging the storage_state from auth_manager.
+				USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+				print(f'[Service] Using persistent user data directory for extension: {USER_DATA_DIR.resolve()}')
+
+				auth_config.update({
+					'headless': False,
+					'args': combined_args,
+					'keep_alive': True,
+					'user_data_dir': str(USER_DATA_DIR.resolve()),
+				})
+				
+				profile = BrowserProfile(**auth_config)
+				
+				print(f'[Service] Recording will use {profile.channel} with saved authentication')
+				print(f'[Service] Storage state loaded: {"storage_state" in auth_config}')
+				print(f'[Service] Cookies file loaded: {"cookies_file" in auth_config}')
+				print(f'[Service] Auth status: {auth_manager.get_auth_status()}')
+				
+			else:
+				# Fallback to original Chromium behavior
+				print(f'[Service] Using default Chromium for workflow recording')
+				
+				# Ensure user data dir exists
+				USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+				print(f'[Service] Using browser user data directory: {USER_DATA_DIR}')
+				
+				# Create browser profile with extension support (original behavior)
+				profile = BrowserProfile(
+					headless=False,
+					user_data_dir=str(USER_DATA_DIR.resolve()),
+					args=[
+						f'--disable-extensions-except={str(EXT_DIR.resolve())}',
+						f'--load-extension={str(EXT_DIR.resolve())}',
+						'--no-default-browser-check',
+						'--no-first-run',
+					],
+					keep_alive=True,
+				)
 
 			# Create and configure browser
 			playwright = await async_playwright().start()
@@ -134,19 +198,30 @@ class RecordingService:
 			print('[Service] Starting browser with extensions...')
 			await self.browser.start()
 
-			print('[Service] Browser launched. Waiting for close or recording stop...')
+			if not hasattr(self.browser, 'browser_context'):
+				print("[Service] ERROR: Cannot find browser_context on Browser object.")
+				self.recording_complete_event.set()
+				return
 
-			# Wait for browser to be closed manually or recording to stop
-			# We'll implement a simple polling mechanism to check if browser is still running
-			while True:
-				try:
-					# Check if browser is still running by trying to get current page
-					await self.browser.get_current_page()
-					await asyncio.sleep(1)  # Poll every second
-				except Exception:
-					# Browser is likely closed
-					print('[Service] Browser appears to be closed or inaccessible.')
-					break
+			browser_closed_future = asyncio.Future()
+
+			def on_browser_event(source: str):
+				print(f'[Service] Browser event received: {source}')
+				if not browser_closed_future.done():
+					browser_closed_future.set_result(True)
+
+			# Listen for the window/context being closed (clicking 'X')
+			self.browser.browser_context.on('close', lambda: on_browser_event('context_closed'))
+
+			# Listen for the entire browser process disconnecting (CMD+Q)
+			if self.browser.browser_context.browser:
+				self.browser.browser_context.browser.on('disconnected', lambda: on_browser_event('browser_disconnected'))
+			else:
+				print("[Service] WARNING: Could not attach 'disconnected' event handler (browser is None, likely a persistent context).")
+
+			print('[Service] Browser launched. Waiting for user to close window or quit application...')
+			await browser_closed_future
+			print('[Service] Browser close/quit detected.')
 
 		except asyncio.CancelledError:
 			print('[Service] Browser task cancelled.')
@@ -221,9 +296,19 @@ class RecordingService:
 				try:
 					self.browser.browser_profile.keep_alive = False
 					await self.browser.close()
+					print('[Service] Browser closed successfully')
 				except Exception as e_browser_close:
 					print(f'[Service] Error closing browser in final cleanup: {e_browser_close}')
-				# self.browser = None
+				
+				# Also close playwright connection
+				try:
+					if hasattr(self.browser, 'playwright') and self.browser.playwright:
+						await self.browser.playwright.stop()
+						print('[Service] Playwright connection closed')
+				except Exception as e_playwright:
+					print(f'[Service] Error closing playwright: {e_playwright}')
+				
+				self.browser = None
 
 			# 3. Stop event processor task
 			if self.event_processor_task and not self.event_processor_task.done():

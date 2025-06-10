@@ -35,31 +35,30 @@ poetry install
    
    This adds deterministic browser workflow automation capabilities. See [WORKFLOW_USE.md](WORKFLOW_USE.md) for detailed features and usage.
 
-## Browser Profile Setup (Optional but Recommended)
+## Authentication Setup (Optional but Recommended)
 
-If you want the agent to have access to your login sessions (e.g., GitHub, Google, etc.), you can set up a persistent Chromium profile:
+If you want the agent to have access to your login sessions (e.g., GitHub, Google, etc.), you can set up authentication:
 
-1. **Run the setup script:**
+1. **Run the authentication setup script:**
    ```bash
-   poetry run python setup_chromium_profile.py
+   poetry run python setup_auth.py
    ```
 
 2. **Login to your services:**
-   - The script will launch Chrome with a persistent user data directory
+   - The script will launch Chrome and guide you through the authentication process
    - Login to any services you want the agent to have access to (GitHub, Google, etc.)
-   - Your login sessions will be automatically saved
+   - Your authentication data will be automatically saved
 
-3. **Close Chrome when done:**
-   - The agent will automatically use this profile and have access to your login sessions
+3. **Authentication is ready:**
+   - The agent will automatically use your saved authentication for all demo generation
    - You only need to do this setup once
 
 **What this does:**
-- Creates a `chromium_user_data/` directory in the project root (ignored by git)
-- Launches Chrome with this persistent profile
-- Any logins you perform are saved for the agent to use
-- The agent will automatically use this profile for all demo generation
+- Creates an `auth_storage/` directory in the project root (ignored by git)
+- Saves your browser authentication state in a secure format
+- The agent will automatically use this authentication for all browser sessions
 
-**Note:** The user data directory is automatically added to `.gitignore` so your login sessions won't be committed to version control.
+**Note:** The authentication data is automatically added to `.gitignore` so your login sessions won't be committed to version control.
 
 ## Running the Server
 

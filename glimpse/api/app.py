@@ -14,7 +14,7 @@ import time
 import requests # Added for launch_chrome_with_debugging
 import logging
 from fastapi.staticfiles import StaticFiles # Added for serving static files
-from .chrome_manager import chrome_manager
+from .auth_manager import auth_manager
 
 # Add workflow-use integration
 workflow_use_path = Path(__file__).parent.parent.parent / "workflow-use-main" / "workflows"
@@ -88,8 +88,9 @@ else:
 job_store: Dict[str, Dict] = {}
 active_connections: Dict[str, Set[WebSocket]] = {}
 
-# Global variable to store the browser instance or connection details
-browser_details = {"remote_debugging_port": 9222} # Store port for now
+# Global variable to store the browser instance or connection details (legacy)
+# Note: browser configuration is now handled by AuthManager
+browser_details = {}
 
 # Variable to store the active mock mode, settable by an endpoint
 ACTIVE_MOCK_MODE: Optional[int] = None
@@ -137,44 +138,14 @@ MOCK_TASK_5 = """
 Stop
 """
 
-def launch_chrome_with_debugging():
-    """Launch Chrome with remote debugging enabled using ChromeManager with multi-instance support"""
-    try:
-        # Get available port (don't force 9222 if it's in use)
-        available_port = chrome_manager.find_available_port(9222)
-        
-        # Launch Chrome, allowing existing instances to continue running
-        success, port_used = chrome_manager.launch_chrome_for_debugging(
-            port=available_port,
-            start_url="http://localhost:3000",
-            allow_existing=True
-        )
-        
-        if success:
-            browser_details["remote_debugging_port"] = port_used
-            browser_details["chrome_instance_path"] = chrome_manager.chrome_path
-            
-            # Show summary of Chrome instances
-            summary = chrome_manager.get_chrome_instances_summary()
-            print(f"✅ Chrome launched successfully on port {port_used}")
-            print(f"📊 Total Chrome instances with shared login data: {summary['total_instances']}")
-            print(f"🔧 Debug ports in use: {summary['debug_ports_in_use']}")
-            print(f"💾 Shared user directory: {chrome_manager.user_data_dir}")
-            print("🎉 All instances share the same login sessions!")
-        else:
-            browser_details["remote_debugging_port"] = None
-            browser_details["chrome_instance_path"] = None
-            print(f"❌ Failed to launch Chrome on port {available_port}")
-            
-    except Exception as e:
-        print(f"❌ Error in launch_chrome_with_debugging: {e}")
-        browser_details["remote_debugging_port"] = None
-        browser_details["chrome_instance_path"] = None
-
-
 @app.on_event("startup")
 async def startup_event():
-    launch_chrome_with_debugging()
+    """Initialize the application on startup"""
+    # Authentication is handled by AuthManager when browser sessions are created
+    # No need to launch Chrome manually - browser-use handles this internally
+    print("✅ Glimpse API server started successfully")
+    print("🔧 Authentication configured via AuthManager")
+    print("🎯 Browser sessions will use saved login data automatically")
 
 class DemoRequest(BaseModel):
     nl_task: str
@@ -753,13 +724,13 @@ async def process_workflow_execution_task(job_id: str, workflow_path: str, promp
             
             # Set up browser profile with recording and separate user data directory
             # This avoids Chrome's behavior of opening tabs in existing instances
-            profile_kwargs = chrome_manager.get_profile_kwargs_for_browser_use(
-                recording_save_dir,
-                debug_port=None,  # Let browser-use auto-assign  
-                use_separate_profile=True  # Use separate user data dir with synced login data
-            )
+            profile_kwargs = auth_manager.get_browser_profile_kwargs()
             
-            logger.info(f"Workflow will use separate user data directory with synced login data")
+            # Add recording configuration
+            profile_kwargs["record_video_dir"] = str(recording_save_dir)
+            profile_kwargs["record_video_size"] = {"width": 1920, "height": 1080}
+            
+            logger.info(f"Workflow will use saved authentication data")
             
             browser_profile = BrowserProfile(**profile_kwargs)
             browser_session = BrowserSession(
@@ -808,11 +779,31 @@ async def process_workflow_execution_task(job_id: str, workflow_path: str, promp
         # Start click recording for video editor (similar to agent.py)
         browser_session.start_click_recording(str(recording_save_dir))
         
-        logger.info(f"Running workflow with inputs: {workflow_inputs}")
-        result = await workflow.run(workflow_inputs)
-        
-        # Stop click recording and get click data
-        click_data = browser_session.stop_click_recording()
+        try:
+            logger.info(f"Running workflow with inputs: {workflow_inputs}")
+            result = await workflow.run(workflow_inputs)
+            
+            # Stop click recording and get click data
+            click_data = browser_session.stop_click_recording()
+        finally:
+            # Ensure browser is properly closed after workflow execution
+            try:
+                logger.info(f"Closing browser session for workflow job {job_id}")
+                browser_session.browser_profile.keep_alive = False  # Disable keep_alive
+                await browser_session.close()
+                logger.info(f"Browser session closed successfully for job {job_id}")
+            except Exception as e:
+                logger.warning(f"Error closing browser session for job {job_id}: {e}")
+            
+            # Also close the browser context and playwright connection
+            try:
+                if hasattr(browser_session, 'browser_context') and browser_session.browser_context:
+                    await browser_session.browser_context.close()
+                if hasattr(browser_session, 'playwright') and browser_session.playwright:
+                    await browser_session.playwright.stop()
+                logger.info(f"Browser context and playwright closed for job {job_id}")
+            except Exception as e:
+                logger.warning(f"Error closing browser context/playwright for job {job_id}: {e}")
         
         job_store[job_id]["progress"] = 0.8
         
