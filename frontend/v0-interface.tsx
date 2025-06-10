@@ -89,36 +89,54 @@ export default function V0Interface() {
   // Add effect to listen for workflow job events
   useEffect(() => {
     const handleWorkflowJobStarted = (event: CustomEvent) => {
-      console.log("Workflow job started:", event.detail);
+      console.log("🚀 Workflow job started event received:", event.detail);
+      console.log("📊 Current page state before workflow:", PageState[currentPage]);
       
       // Check for stored workflow job data
       const storedJobData = localStorage.getItem('workflow_job_data');
+      console.log("💾 Stored workflow job data:", storedJobData);
+      
       if (storedJobData) {
         try {
           const jobData = JSON.parse(storedJobData);
-          console.log("Found stored workflow job data:", jobData);
+          console.log("✅ Found stored workflow job data:", jobData);
           
           // Set up the interface for workflow execution
           const variablesText = jobData.variables ? Object.entries(jobData.variables).map(([key, value]) => `${key}: ${value}`).join(', ') : 'no variables';
           setSubmittedText(`Workflow: ${jobData.workflow_name} (${variablesText})`);
           setJobId(jobData.job_id);
-          setIntendedEditorType(jobData.demo_type);
+          setDemoType(jobData.demo_type || 'video');
+          setIntendedEditorType(jobData.demo_type || 'video');
+          
+          // Clear previous workflow state to prevent immediate transition
+          console.log("🧹 Clearing previous workflow state...");
+          setRecordingUrl(null);
+          setClickData(null);
+          setArtifactPath(null);
+          setScreenshotsList([]);
+          
+          console.log("🔄 Setting page to Loading state...");
           setCurrentPage(PageState.Loading);
+          console.log("📊 Page state after setting to Loading:", PageState.Loading);
           
           // Clear the stored data
           localStorage.removeItem('workflow_job_data');
         } catch (error) {
-          console.error("Error parsing stored workflow job data:", error);
+          console.error("❌ Error parsing stored workflow job data:", error);
         }
+      } else {
+        console.log("⚠️ No stored workflow job data found in localStorage");
       }
     };
 
+    console.log("🎧 Adding workflow_job_started event listener");
     window.addEventListener('workflow_job_started', handleWorkflowJobStarted as EventListener);
     
     return () => {
+      console.log("🔇 Removing workflow_job_started event listener");
       window.removeEventListener('workflow_job_started', handleWorkflowJobStarted as EventListener);
     };
-  }, []);
+  }, [currentPage]);
 
   // Dynamically generate slides using useMemo for stability
   const slides: SlideType[] = useMemo(() => {
@@ -215,66 +233,137 @@ export default function V0Interface() {
 
   useEffect(() => {
     if (currentPage === PageState.Loading && jobId) {
-      const wsUrl = `ws://127.0.0.1:8000/ws/job-status/${jobId}`
-      const ws = new WebSocket(wsUrl)
-
-      ws.onopen = () => {
-        console.log(`WebSocket connection established to ${wsUrl}`)
-      }
-
-      ws.onmessage = (event) => {
+      // First check if the job is already completed
+      const checkJobStatus = async () => {
         try {
-          const message = JSON.parse(event.data as string)
-          console.log("WebSocket message received:", message)
-
-          if (message.job_id === jobId) {
-            if (message.status === "completed") {
-              // Check if this is a workflow job first (job_id starts with "workflow_job_")
+          const response = await fetch(`http://127.0.0.1:8000/demo-status/${jobId}`);
+          if (response.ok) {
+            const jobStatus = await response.json();
+            
+            // If job is already completed, handle it directly without WebSocket
+            if (jobStatus.status === "completed") {
+              console.log("Job already completed, skipping WebSocket connection");
+              
               const isWorkflowJob = jobId && jobId.startsWith("workflow_job_");
               
-              if (!isWorkflowJob && selectedTeam.id === "free-run") {
-                console.log("Job completed for Free Run. Fetching artifact details...");
-                const fetchJobDetails = async () => {
-                  try {
-                    const res = await fetch(`http://127.0.0.1:8000/demo-status/${jobId}`);
-                    if (res.ok) {
-                      const jobDetails = await res.json();
-                      console.log("Fetched jobDetails for Free Run (raw):", JSON.stringify(jobDetails, null, 2));
-
-                      setArtifactPath(jobDetails.artifact_path || null);
-                      setScreenshotsList(jobDetails.screenshots || []);
-                      setClickData(jobDetails.click_data || null);
-
-                      if (intendedEditorType === "video") {
-                        if (jobDetails.recording_path) {
-                          setRecordingUrl(jobDetails.recording_path);
-                          console.log("Free Run recording URL set via fetchJobDetails:", jobDetails.recording_path);
-                          if (jobDetails.click_data) {
-                            console.log("Free Run click data received:", jobDetails.click_data.length, "clicks");
-                          }
-                        } else {
-                          console.error("Free Run (video mode) completed, but no recording_path found in jobDetails.");
-                          setCurrentPage(PageState.Home);
-                        }
-                      } else if (intendedEditorType === "interactive demo") {
-                        if (jobDetails.screenshots && jobDetails.screenshots.length > 0) {
-                          console.log("Free Run (interactive demo mode): Screenshots received. artifact_path:", jobDetails.artifact_path || "N/A", "screenshots count:", jobDetails.screenshots.length, ". Proceeding to editor.");
-                        } else {
-                          console.error("Free Run (interactive demo mode) completed, but no (or empty) screenshots list was found in jobDetails.");
-                          setCurrentPage(PageState.Home);
-                        }
-                      }
-                    } else {
-                      console.error("Failed to fetch job details for Free Run artifacts, status:", res.status);
-                      setCurrentPage(PageState.Home);
+              if (isWorkflowJob) {
+                console.log("Workflow job completed. Transitioning based on intendedEditorType:", intendedEditorType);
+                if (intendedEditorType === "video") {
+                  if (jobStatus.recording_path) {
+                    if (jobStatus.click_data) {
+                      setClickData(jobStatus.click_data);
+                      console.log("Workflow click data received for video:", jobStatus.click_data.length, "clicks");
                     }
-                  } catch (fetchError) {
-                    console.error("Error fetching final job details for Free Run artifacts:", fetchError);
-                    setCurrentPage(PageState.Home);
-                  } finally {
-                    ws.close();
+                    setRecordingUrl(jobStatus.recording_path);
+                    console.log("Workflow recording URL set for video editor:", jobStatus.recording_path);
                   }
-                                  };
+                  setCurrentPage(PageState.VideoEditor);
+                } else {
+                  setCurrentPage(PageState.Editor);
+                }
+              } else if (selectedTeam.id === "free-run") {
+                console.log("Job completed for Free Run. Using existing status data...");
+                setArtifactPath(jobStatus.artifact_path || null);
+                setScreenshotsList(jobStatus.screenshots || []);
+                setClickData(jobStatus.click_data || null);
+
+                if (intendedEditorType === "video") {
+                  if (jobStatus.recording_path) {
+                    setRecordingUrl(jobStatus.recording_path);
+                    console.log("Free Run recording URL set via status check:", jobStatus.recording_path);
+                    if (jobStatus.click_data) {
+                      console.log("Free Run click data received:", jobStatus.click_data.length, "clicks");
+                    }
+                    setCurrentPage(PageState.VideoEditor);
+                  } else {
+                    console.error("Free Run (video mode) completed, but no recording_path found.");
+                    setCurrentPage(PageState.Home);
+                  }
+                } else if (intendedEditorType === "interactive demo") {
+                  if (jobStatus.screenshots && jobStatus.screenshots.length > 0) {
+                    console.log("Free Run (interactive demo mode): Screenshots received. Proceeding to editor.");
+                    setCurrentPage(PageState.Editor);
+                  } else {
+                    console.error("Free Run (interactive demo mode) completed, but no screenshots found.");
+                    setCurrentPage(PageState.Home);
+                  }
+                }
+              }
+              return; // Exit early, no need for WebSocket
+            } else if (jobStatus.status === "failed") {
+              console.error("Job failed:", jobStatus.error || "Unknown error from backend");
+              setCurrentPage(PageState.Home);
+              setJobId(null);
+              return; // Exit early
+            }
+          }
+        } catch (error) {
+          console.error("Error checking job status:", error);
+        }
+        
+        // If we reach here, job is still processing, so establish WebSocket
+        const wsUrl = `ws://127.0.0.1:8000/ws/job-status/${jobId}`;
+        const ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          console.log(`WebSocket connection established to ${wsUrl}`);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data as string);
+            console.log("WebSocket message received:", message);
+
+            if (message.job_id === jobId) {
+              if (message.status === "completed") {
+                // Check if this is a workflow job first (job_id starts with "workflow_job_")
+                const isWorkflowJob = jobId && jobId.startsWith("workflow_job_");
+                
+                if (!isWorkflowJob && selectedTeam.id === "free-run") {
+                  console.log("Job completed for Free Run. Fetching artifact details...");
+                  const fetchJobDetails = async () => {
+                    try {
+                      const res = await fetch(`http://127.0.0.1:8000/demo-status/${jobId}`);
+                      if (res.ok) {
+                        const jobDetails = await res.json();
+                        console.log("Fetched jobDetails for Free Run (raw):", JSON.stringify(jobDetails, null, 2));
+
+                        setArtifactPath(jobDetails.artifact_path || null);
+                        setScreenshotsList(jobDetails.screenshots || []);
+                        setClickData(jobDetails.click_data || null);
+
+                        if (intendedEditorType === "video") {
+                          if (jobDetails.recording_path) {
+                            setRecordingUrl(jobDetails.recording_path);
+                            console.log("Free Run recording URL set via fetchJobDetails:", jobDetails.recording_path);
+                            if (jobDetails.click_data) {
+                              console.log("Free Run click data received:", jobDetails.click_data.length, "clicks");
+                            }
+                            setCurrentPage(PageState.VideoEditor);
+                          } else {
+                            console.error("Free Run (video mode) completed, but no recording_path found in jobDetails.");
+                            setCurrentPage(PageState.Home);
+                          }
+                        } else if (intendedEditorType === "interactive demo") {
+                          if (jobDetails.screenshots && jobDetails.screenshots.length > 0) {
+                            console.log("Free Run (interactive demo mode): Screenshots received. artifact_path:", jobDetails.artifact_path || "N/A", "screenshots count:", jobDetails.screenshots.length, ". Proceeding to editor.");
+                            setCurrentPage(PageState.Editor);
+                          } else {
+                            console.error("Free Run (interactive demo mode) completed, but no (or empty) screenshots list was found in jobDetails.");
+                            setCurrentPage(PageState.Home);
+                          }
+                        }
+                      } else {
+                        console.error("Failed to fetch job details for Free Run artifacts, status:", res.status);
+                        setCurrentPage(PageState.Home);
+                      }
+                    } catch (fetchError) {
+                      console.error("Error fetching final job details for Free Run artifacts:", fetchError);
+                      setCurrentPage(PageState.Home);
+                    } finally {
+                      ws.close();
+                    }
+                  };
                   fetchJobDetails();
                 } else if (isWorkflowJob) {
                   console.log("Workflow job completed. Transitioning based on intendedEditorType:", intendedEditorType);
@@ -296,73 +385,47 @@ export default function V0Interface() {
                   }
                   ws.close();
                 } else {
-                  console.log("Job completed for non-Free Run. Transitioning based on intendedEditorType:", intendedEditorType);
-                  if (intendedEditorType === "video") {
-                    if (message.recording_path) {
-                      // Set click data if available in the message
-                      if (message.click_data) {
-                        setClickData(message.click_data);
-                        console.log("Click data received for video:", message.click_data.length, "clicks");
-                      }
-                      
-                      // Apply cache-busting for team-based demos to ensure latest video is loaded
-                      const teamFolderMap: { [key: string]: string } = {
-                        "browser-use": "browser-use",
-                        "github": "github", 
-                        "storylane": "storylane",
-                        "glimpse": "glimpse",
-                        "databricks": "databricks"
-                      };
-                      const folderName = teamFolderMap[selectedTeam.id];
-                      if (folderName) {
-                        const cacheBustingUrl = `http://127.0.0.1:8000/public/${folderName}/demo.mp4?t=${new Date().getTime()}`;
-                        setRecordingUrl(cacheBustingUrl);
-                        console.log("Team demo recording URL set for video editor with cache-busting:", cacheBustingUrl);
-                      } else {
-                        setRecordingUrl(message.recording_path as string);
-                        console.log("Recording URL set for video editor:", message.recording_path);
-                      }
-                    }
-                    setCurrentPage(PageState.VideoEditor);
-                  } else {
-                    setCurrentPage(PageState.Editor);
-                  }
+                  console.log("Regular demo job completed");
+                  setCurrentPage(PageState.Editor);
                   ws.close();
                 }
-            } else if (message.status === "failed") {
-              console.error("Job failed:", message.error || "Unknown error from backend")
-              setCurrentPage(PageState.Home)
-              setJobId(null)
-              ws.close()
-            } else if (message.status === "processing" || message.status === "queued") {
-              console.log(
-                `Job status: ${message.status}, Progress: ${message.progress ? (message.progress * 100).toFixed(0) + "%" : "N/A"}`,
-              )
+              } else if (message.status === "failed") {
+                console.error("Job failed:", message.error || "Unknown error from backend");
+                setCurrentPage(PageState.Home);
+                setJobId(null);
+                ws.close();
+              } else if (message.status === "processing" || message.status === "queued") {
+                console.log(
+                  `Job status: ${message.status}, Progress: ${message.progress ? (message.progress * 100).toFixed(0) + "%" : "N/A"}`,
+                );
+              }
             }
+          } catch (e) {
+            console.error("Error parsing WebSocket message or in onmessage handler:", e);
           }
-        } catch (e) {
-          console.error("Error parsing WebSocket message or in onmessage handler:", e)
-        }
-      }
+        };
 
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error)
-        setCurrentPage(PageState.Home)
-        setJobId(null)
-      }
+        ws.onerror = (error) => {
+          console.error("WebSocket error:", error);
+          setCurrentPage(PageState.Home);
+          setJobId(null);
+        };
 
-      ws.onclose = (event) => {
-        console.log("WebSocket connection closed.", event.code, event.reason)
-      }
+        ws.onclose = (event) => {
+          console.log("WebSocket connection closed.", event.code, event.reason);
+        };
 
-      return () => {
-        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-          console.log("Closing WebSocket connection due to effect cleanup.")
-          ws.close()
-        }
-      }
+        return () => {
+          if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            console.log("Closing WebSocket connection due to effect cleanup.");
+            ws.close();
+          }
+        };
+      };
+      
+      checkJobStatus();
     }
-  }, [currentPage, jobId, setCurrentPage, setJobId, intendedEditorType])
+  }, [currentPage, jobId, selectedTeam.id, intendedEditorType]);
 
   // useEffect to transition to Editor for Free Run once artifacts OR recordingUrl are loaded
   useEffect(() => {

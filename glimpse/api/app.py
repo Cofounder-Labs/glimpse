@@ -844,17 +844,21 @@ async def process_workflow_execution_task(job_id: str, workflow_path: str, promp
         
         try:
             logger.info(f"Running workflow with inputs: {workflow_inputs}")
+            logger.info(f"WORKFLOW START: About to call workflow.run() at {datetime.now()}")
             result = await workflow.run(workflow_inputs)
+            logger.info(f"WORKFLOW END: workflow.run() returned at {datetime.now()}")
+            logger.info(f"Workflow result: {result}")
             
             # Stop click recording and get click data
             click_data = browser_session.stop_click_recording()
+            logger.info(f"CLICK RECORDING STOPPED: {len(click_data) if click_data else 0} clicks recorded")
         finally:
             # Ensure browser is properly closed after workflow execution
             try:
-                logger.info(f"Closing browser session for workflow job {job_id}")
+                logger.info(f"BROWSER CLEANUP START: Closing browser session for workflow job {job_id} at {datetime.now()}")
                 browser_session.browser_profile.keep_alive = False  # Disable keep_alive
                 await browser_session.close()
-                logger.info(f"Browser session closed successfully for job {job_id}")
+                logger.info(f"BROWSER CLEANUP: Browser session closed successfully for job {job_id}")
             except Exception as e:
                 logger.warning(f"Error closing browser session for job {job_id}: {e}")
             
@@ -864,7 +868,7 @@ async def process_workflow_execution_task(job_id: str, workflow_path: str, promp
                     await browser_session.browser_context.close()
                 if hasattr(browser_session, 'playwright') and browser_session.playwright:
                     await browser_session.playwright.stop()
-                logger.info(f"Browser context and playwright closed for job {job_id}")
+                logger.info(f"BROWSER CLEANUP: Browser context and playwright closed for job {job_id}")
             except Exception as e:
                 logger.warning(f"Error closing browser context/playwright for job {job_id}: {e}")
         

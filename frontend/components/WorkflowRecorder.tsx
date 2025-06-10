@@ -185,11 +185,11 @@ export const WorkflowRecorder: React.FC = () => {
         }));
         
         // Dispatch a custom event to notify the main app
+        console.log("🎯 [runWorkflow] Dispatching workflow_job_started event with data:", jobData);
         window.dispatchEvent(new CustomEvent('workflow_job_started', {
           detail: jobData
         }));
-        
-        alert(`Workflow execution started! The demo will be available once processing completes.`);
+        console.log("✅ [runWorkflow] workflow_job_started event dispatched successfully");
         
         // Clear form
         setSelectedWorkflow("");
@@ -211,6 +211,9 @@ export const WorkflowRecorder: React.FC = () => {
   };
 
   const handleCreateDemoFromRecent = async () => {
+    console.log("🚀 handleCreateDemoFromRecent called with demoType:", demoType);
+    console.log("📊 Current recordingStatus:", recordingStatus);
+    
     // Create demo from the most recently recorded workflow
     if (!recordingStatus.workflow_name) {
       alert("No recent workflow found. Please record a workflow first.");
@@ -238,10 +241,10 @@ export const WorkflowRecorder: React.FC = () => {
     }
 
     // No variables needed, run directly
-    await runRecentWorkflow({});
+    await runRecentWorkflow({}, demoType);
   };
 
-  const runRecentWorkflow = async (variables: Record<string, string>) => {
+  const runRecentWorkflow = async (variables: Record<string, string>, demoType: "video" | "interactive") => {
     try {
       const response = await fetch("http://127.0.0.1:8000/run-saved-workflow", {
         method: "POST",
@@ -263,15 +266,15 @@ export const WorkflowRecorder: React.FC = () => {
           job_id: jobData.job_id,
           workflow_name: recordingStatus.workflow_name,
           variables: variables,
-          demo_type: "video"
+          demo_type: demoType
         }));
         
         // Dispatch a custom event to notify the main app
+        console.log("🎯 [runRecentWorkflow] Dispatching workflow_job_started event with data:", jobData);
         window.dispatchEvent(new CustomEvent('workflow_job_started', {
           detail: jobData
         }));
-        
-        alert(`Demo creation started! The demo will be available once processing completes.`);
+        console.log("✅ [runRecentWorkflow] workflow_job_started event dispatched successfully");
         
         // Reset the state
         setRecordingStatus({ status: "idle" });
@@ -302,7 +305,7 @@ export const WorkflowRecorder: React.FC = () => {
     }
 
     // Run workflow with provided variables
-    runRecentWorkflow(workflowInputs);
+    runRecentWorkflow(workflowInputs, demoType);
   };
 
   return (
