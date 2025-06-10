@@ -296,23 +296,15 @@ export default function V0Interface() {
                   }
                   ws.close();
                 } else {
-                console.log("Job completed for non-Free Run. Transitioning based on intendedEditorType:", intendedEditorType);
-                if (intendedEditorType === "video") {
-                  if (message.recording_path) {
-                    // Set click data if available in the message
-                    if (message.click_data) {
-                      setClickData(message.click_data);
-                      console.log("Click data received for video:", message.click_data.length, "clicks");
-                    }
-                    
-                    // Check if this is a workflow job (job_id starts with "workflow_job_")
-                    const isWorkflowJob = jobId && jobId.startsWith("workflow_job_");
-                    
-                    if (isWorkflowJob) {
-                      // For workflow jobs, always use the actual recording path
-                      setRecordingUrl(message.recording_path as string);
-                      console.log("Workflow recording URL set for video editor:", message.recording_path);
-                    } else {
+                  console.log("Job completed for non-Free Run. Transitioning based on intendedEditorType:", intendedEditorType);
+                  if (intendedEditorType === "video") {
+                    if (message.recording_path) {
+                      // Set click data if available in the message
+                      if (message.click_data) {
+                        setClickData(message.click_data);
+                        console.log("Click data received for video:", message.click_data.length, "clicks");
+                      }
+                      
                       // Apply cache-busting for team-based demos to ensure latest video is loaded
                       const teamFolderMap: { [key: string]: string } = {
                         "browser-use": "browser-use",
@@ -331,13 +323,12 @@ export default function V0Interface() {
                         console.log("Recording URL set for video editor:", message.recording_path);
                       }
                     }
+                    setCurrentPage(PageState.VideoEditor);
+                  } else {
+                    setCurrentPage(PageState.Editor);
                   }
-                  setCurrentPage(PageState.VideoEditor);
-                } else {
-                  setCurrentPage(PageState.Editor);
+                  ws.close();
                 }
-                ws.close();
-              }
             } else if (message.status === "failed") {
               console.error("Job failed:", message.error || "Unknown error from backend")
               setCurrentPage(PageState.Home)
