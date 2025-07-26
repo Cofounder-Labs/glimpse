@@ -1,5 +1,17 @@
-# glimpse
-AI-Assisted Demo Creation via Natural Language and Browser Agent
+# Glimpse
+Show or tell Glimpse what product walkthrough video you want and watch it create that end to end 
+
+## Why Glimpse?
+[![Watch the video](https://img.youtube.com/vi/V4LnzFZARp4/maxresdefault.jpg)](https://youtu.be/V4LnzFZARp4)
+
+## Demo
+
+### Workflow (Show) to Product Walkthrough Video
+[![Watch the video](https://img.youtube.com/vi/EFX6gkYnb04/maxresdefault.jpg)](https://youtu.be/EFX6gkYnb04)
+
+
+### Prompt (Tell) to Product Walkthrough Video
+[![Watch the video](https://img.youtube.com/vi/dxZWZnV7eos/maxresdefault.jpg)](https://youtu.be/dxZWZnV7eos)
 
 ## Setup
 
