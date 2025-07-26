@@ -1,5 +1,7 @@
 # Glimpse
-Show or tell Glimpse what product walkthrough video you want and watch it create that end to end 
+Auto created, self updating product walkthough videos
+
+Show or tell Glimpse what you want to demo and watch it create that end to end. It remembers everything to update the product videos when your UI changes.
 
 ## Why Glimpse?
 [![Watch the video](https://img.youtube.com/vi/V4LnzFZARp4/maxresdefault.jpg)](https://youtu.be/V4LnzFZARp4)
